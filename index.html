@@ -8,6 +8,8 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&family=Noto+Serif+KR:wght@400;700&family=Nanum+Gothic:wght@400;700&family=Nanum+Myeongjo:wght@400;700&family=Gowun+Dodum&family=Gowun+Batang&family=Black+Han+Sans&family=Do+Hyeon&family=Jua&family=Gaegu:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;700&family=Song+Myung&display=swap" rel="stylesheet">
@@ -66,6 +68,25 @@
     cursor:pointer;
   }
   .btn-export:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-export.btn-orange{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn-export.btn-orange:hover{opacity:0.9;color:#fff;}
+  .btn-export.btn-green{background:#3f8a5c;border-color:#3f8a5c;color:#fff;}
+  .btn-export.btn-green:hover{opacity:0.9;color:#fff;}
+  .btn-export.btn-blue{background:#3a6ea5;border-color:#3a6ea5;color:#fff;}
+  .btn-export.btn-blue:hover{opacity:0.9;color:#fff;}
+  .image-tab-row{margin-bottom:16px;}
+  .image-tab-row button{
+    font-family:inherit;
+    font-size:14px;
+    padding:9px 18px;
+    border:none;
+    border-radius:4px;
+    cursor:pointer;
+    background:#3f8a5c;
+    color:#fff;
+  }
+  .image-tab-row button:hover{opacity:0.9;}
+  .image-tab-row button.active{box-shadow:0 0 0 2px #2c6444 inset;}
   .edit-name-btn{
     border:none;
     background:transparent;
@@ -146,6 +167,36 @@
   nav.shelves button[data-k="tape"].active{background:var(--spine-tape);}
   nav.shelves button[data-k="book"].active{background:var(--spine-book);}
   nav.shelves button.custom-tab.active{background:var(--accent);color:#fff;}
+
+  .warn-box{
+    background:#fdf1e0;
+    border:1px solid #e8c99a;
+    color:#7a5220;
+    padding:8px 12px;
+    border-radius:4px;
+    font-size:13px;
+    margin-bottom:12px;
+    line-height:1.5;
+  }
+  .img-upload-row{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+  #imgPreview{
+    max-width:260px;
+    max-height:260px;
+    border:1px solid var(--line);
+    border-radius:4px;
+    display:block;
+    margin-bottom:10px;
+  }
+  .img-processing{
+    font-size:13.5px;
+    color:var(--ink-soft);
+    padding:10px 0;
+  }
   .add-tab-btn{
     flex:0 0 auto;
     border:1px dashed var(--ink-soft);
@@ -287,6 +338,19 @@
   }
 
   .status{font-size:13px;color:var(--ink-soft);margin-top:4px;min-height:16px;}
+
+  .app-footer{
+    text-align:center;
+    margin-top:40px;
+    padding-top:16px;
+    border-top:1px solid var(--line);
+  }
+  .app-footer a{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    text-decoration:none;
+  }
+  .app-footer a:hover{color:var(--accent);text-decoration:underline;}
 
   .search-bar{
     display:flex;
@@ -458,12 +522,16 @@
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <div class="count" id="totalCount"></div>
-      <button class="btn-export" id="templateBtn">저장용 엑셀폼 받기</button>
-      <button class="btn-export" id="uploadBtn">엑셀 업로드</button>
+      <button class="btn-export btn-orange" id="templateBtn">저장용 엑셀폼 받기</button>
+      <button class="btn-export btn-green" id="uploadBtn">엑셀 업로드</button>
       <input type="file" id="uploadInput" accept=".xlsx,.xls" style="display:none;">
-      <button class="btn-export" id="exportBtn">엑셀로 내보내기</button>
+      <button class="btn-export btn-blue" id="exportBtn">엑셀로 내보내기</button>
     </div>
   </header>
+
+  <div class="image-tab-row">
+    <button data-k="image" id="imageTabBtn" class="btn-green">📷 이미지로 올리기</button>
+  </div>
 
   <div class="display-settings">
     <label>글씨체
@@ -588,7 +656,35 @@
     <div class="list" id="list-book"></div>
   </div>
 
+  <!-- 이미지로 올리기 -->
+  <div class="panel" data-k="image">
+    <div class="add-form">
+      <div class="img-upload-row">
+        <button type="button" class="btn-primary" id="imgCameraBtn">📷 지금 찍어서 올리기</button>
+        <button type="button" class="btn-export" id="imgGalleryBtn">🖼️ 사진(파일) 올리기</button>
+        <input type="file" id="imgCameraInput" accept="image/*" capture="environment" style="display:none;">
+        <input type="file" id="imgGalleryInput" accept="image/*" style="display:none;">
+      </div>
+
+      <div id="imgPreviewWrap" style="display:none;">
+        <img id="imgPreview" alt="업로드한 이미지 미리보기">
+        <div class="img-upload-row">
+          <button type="button" class="btn-primary" id="imgBarcodeBtn">바코드로 인식하기</button>
+          <button type="button" class="btn-export" id="imgOcrBtn">글자로 인식하기 (OCR)</button>
+        </div>
+      </div>
+
+      <div id="imgProcessing" class="img-processing" style="display:none;"></div>
+
+      <div id="imgResultWrap" style="display:none;"></div>
+    </div>
+  </div>
+
   <div class="status" id="status"></div>
+
+  <footer class="app-footer">
+    <a href="https://blog.naver.com/mapslike" target="_blank" rel="noopener noreferrer">Mapslike가 Claude의 도움을 받아 제작</a>
+  </footer>
 </div>
 
 <script>
@@ -972,15 +1068,24 @@ function removeItem(k, id){
 let currentTab = 'cd';
 function activateTab(k){
   currentTab = k;
-  document.querySelectorAll('nav.shelves button[data-k]').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('button[data-k]').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-  const btn = document.querySelector(`nav.shelves button[data-k="${k}"]`);
+  const btn = document.querySelector(`button[data-k="${k}"]`);
   if(btn) btn.classList.add('active');
   const panel = document.querySelector(`.panel[data-k="${k}"]`);
   if(panel) panel.classList.add('active');
+
+  // 검색 중이었다면 검색 상태를 해제하고 탭 화면으로 복귀
+  const searchInputEl = document.getElementById('searchInput');
+  if(searchInputEl && searchInputEl.value){
+    searchInputEl.value = '';
+  }
+  document.getElementById('searchBar').classList.remove('has-query');
+  document.getElementById('shelvesNav').style.display = '';
+  document.getElementById('searchResults').classList.remove('active');
 }
 
-document.querySelectorAll('nav.shelves button[data-k]').forEach(btn=>{
+document.querySelectorAll('button[data-k]').forEach(btn=>{
   btn.addEventListener('click', ()=> activateTab(btn.dataset.k));
 });
 
@@ -1674,6 +1779,197 @@ document.getElementById('uploadInput').addEventListener('change', (e)=>{
   const file = e.target.files[0];
   if(file) importFromExcel(file);
   e.target.value = '';
+});
+
+// ---- 이미지로 올리기: 바코드 인식 / 글자 인식(OCR) ----
+let pendingImageDataUrl = null;
+
+document.getElementById('imgCameraBtn').addEventListener('click', ()=>{
+  document.getElementById('imgCameraInput').click();
+});
+document.getElementById('imgGalleryBtn').addEventListener('click', ()=>{
+  document.getElementById('imgGalleryInput').click();
+});
+
+function handleImageFile(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    pendingImageDataUrl = e.target.result;
+    document.getElementById('imgPreview').src = pendingImageDataUrl;
+    document.getElementById('imgPreviewWrap').style.display = 'block';
+    document.getElementById('imgResultWrap').style.display = 'none';
+    document.getElementById('imgResultWrap').innerHTML = '';
+  };
+  reader.readAsDataURL(file);
+}
+document.getElementById('imgCameraInput').addEventListener('change', e=> handleImageFile(e.target.files[0]));
+document.getElementById('imgGalleryInput').addEventListener('change', e=> handleImageFile(e.target.files[0]));
+
+function setImgProcessing(msg){
+  const el = document.getElementById('imgProcessing');
+  if(msg){ el.textContent = msg; el.style.display = 'block'; }
+  else{ el.style.display = 'none'; }
+}
+
+function isIsbnLike(code){
+  const c = code.replace(/[-\s]/g,'');
+  return /^(97[89]\d{10}|\d{9}[\dXx])$/.test(c);
+}
+
+async function lookupBookByIsbn(isbn){
+  try{
+    const res = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+    const json = await res.json();
+    const rec = json['ISBN:'+isbn];
+    if(!rec) return null;
+    return {
+      title: rec.title || '',
+      sub: (rec.authors||[]).map(a=>a.name).join(', '),
+      extra: (rec.publishers||[]).map(p=>p.name).join(', ')
+    };
+  }catch(e){ return null; }
+}
+
+async function lookupReleaseByBarcode(code){
+  try{
+    const res = await fetch(`https://musicbrainz.org/ws/2/release/?query=barcode:${code}&fmt=json`);
+    const json = await res.json();
+    const rel = (json.releases||[])[0];
+    if(!rel) return null;
+    return {
+      title: rel.title || '',
+      sub: (rel['artist-credit']||[]).map(a=>a.name).join(', '),
+      extra: ''
+    };
+  }catch(e){ return null; }
+}
+
+function populateCategorySelect(selectEl, guess){
+  const opts = [
+    {id:'cd', label:"CD's"},
+    {id:'tape', label:"Tape's"},
+    {id:'book', label:"Book's"},
+    ...customTabs.map(t=>({id:t.id, label:t.name}))
+  ];
+  selectEl.innerHTML = opts.map(o=>
+    `<option value="${o.id}" ${o.id===guess ? 'selected' : ''}>${esc(o.label)}</option>`
+  ).join('');
+}
+
+function renderImageResultForm({ title, sub, note, warn, categoryGuess }){
+  const wrap = document.getElementById('imgResultWrap');
+  wrap.innerHTML = `
+    <div class="warn-box">${esc(warn)}</div>
+    <div class="grid">
+      <div class="field"><label>제목</label><input id="imgResTitle" value="${esc(title||'')}" placeholder="인식된 제목 (직접 수정 가능)"></div>
+      <div class="field"><label>아티스트 / 저자 (해당 시)</label><input id="imgResSub" value="${esc(sub||'')}" placeholder="선택 입력"></div>
+    </div>
+    <div class="grid" style="margin-top:12px;">
+      <div class="field"><label>담을 탭</label><select id="imgResCategory"></select></div>
+      <div class="field"><label>메모</label><textarea id="imgResNote">${esc(note||'')}</textarea></div>
+    </div>
+    <div class="add-actions"><button type="button" class="btn-primary" id="imgAddBtn">목록에 추가</button></div>
+  `;
+  wrap.style.display = 'block';
+  populateCategorySelect(document.getElementById('imgResCategory'), categoryGuess || 'book');
+
+  document.getElementById('imgAddBtn').addEventListener('click', async ()=>{
+    const category = document.getElementById('imgResCategory').value;
+    const title = document.getElementById('imgResTitle').value.trim();
+    const sub = document.getElementById('imgResSub').value.trim();
+    const note = document.getElementById('imgResNote').value.trim();
+    if(!title){ statusMsg('제목을 입력해주세요.'); return; }
+
+    let item;
+    if(category === 'cd' || category === 'tape'){
+      item = { id: category+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), title, artist: sub, setCount: 1, tracks: [], note };
+    }else if(category === 'book'){
+      item = { id: 'book_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), title, author: sub, publisher: '', place: '', purchaseDate: '', note };
+    }else{
+      item = { id: 'item_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), title, isGift: false, date: '', note: sub ? `${sub} ${note}`.trim() : note };
+    }
+    if(!data[category]) data[category] = [];
+    data[category].unshift(item);
+    await save(category);
+    renderList(category);
+    updateTotal();
+    statusMsg('목록에 추가되었습니다.');
+
+    // 다음 이미지 처리를 위해 초기화
+    document.getElementById('imgResultWrap').style.display = 'none';
+    document.getElementById('imgResultWrap').innerHTML = '';
+    document.getElementById('imgPreviewWrap').style.display = 'none';
+    pendingImageDataUrl = null;
+  });
+}
+
+document.getElementById('imgBarcodeBtn').addEventListener('click', async ()=>{
+  if(!pendingImageDataUrl) return;
+  if(typeof ZXing === 'undefined'){
+    statusMsg('바코드 인식 라이브러리를 아직 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+  setImgProcessing('바코드를 인식하는 중...');
+  document.getElementById('imgResultWrap').style.display = 'none';
+  try{
+    const reader = new ZXing.BrowserMultiFormatReader();
+    const result = await reader.decodeFromImageUrl(pendingImageDataUrl);
+    const code = result.getText();
+
+    let info = null;
+    let categoryGuess = 'book';
+    if(isIsbnLike(code)){
+      info = await lookupBookByIsbn(code.replace(/[-\s]/g,''));
+      categoryGuess = 'book';
+    }
+    if(!info){
+      const rel = await lookupReleaseByBarcode(code);
+      if(rel){ info = rel; categoryGuess = 'cd'; }
+    }
+
+    setImgProcessing('');
+    renderImageResultForm({
+      title: info ? info.title : '',
+      sub: info ? info.sub : '',
+      note: `바코드: ${code}` + (info ? (info.extra ? ` · ${info.extra}` : '') : ' (자동 정보 조회 실패 - 직접 입력해주세요)'),
+      warn: '웹상의 존재하지 않는 바코드일 경우 읽기 실패할 수 있습니다.',
+      categoryGuess
+    });
+  }catch(e){
+    setImgProcessing('');
+    renderImageResultForm({
+      title: '', sub: '', note: '',
+      warn: '바코드를 인식하지 못했습니다. 웹상의 존재하지 않는 바코드일 경우 읽기 실패할 수 있습니다.',
+      categoryGuess: 'book'
+    });
+  }
+});
+
+document.getElementById('imgOcrBtn').addEventListener('click', async ()=>{
+  if(!pendingImageDataUrl) return;
+  if(typeof Tesseract === 'undefined'){
+    statusMsg('글자 인식 라이브러리를 아직 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+  setImgProcessing('글자를 인식하는 중입니다... (인터넷 상황에 따라 다소 시간이 걸릴 수 있어요)');
+  document.getElementById('imgResultWrap').style.display = 'none';
+  try{
+    const { data } = await Tesseract.recognize(pendingImageDataUrl, 'kor+eng');
+    const text = (data && data.text ? data.text : '').trim();
+    const firstLine = text.split('\n').map(s=>s.trim()).filter(Boolean)[0] || '';
+    setImgProcessing('');
+    renderImageResultForm({
+      title: firstLine,
+      sub: '',
+      note: text,
+      warn: '이미지의 해상도나 혹은 읽기의 실수로 오류가 있을 수 있습니다.',
+      categoryGuess: 'book'
+    });
+  }catch(e){
+    setImgProcessing('');
+    statusMsg('글자 인식 중 오류가 발생했습니다.');
+  }
 });
 
 loadOwnerName();
