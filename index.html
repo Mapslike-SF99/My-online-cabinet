@@ -1,0 +1,1690 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>나의 온라인 캐비넷</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#b5622b">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&family=Noto+Serif+KR:wght@400;700&family=Nanum+Gothic:wght@400;700&family=Nanum+Myeongjo:wght@400;700&family=Gowun+Dodum&family=Gowun+Batang&family=Black+Han+Sans&family=Do+Hyeon&family=Jua&family=Gaegu:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;700&family=Song+Myung&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f6f2e9;
+    --ink:#2b2620;
+    --ink-soft:#6b6154;
+    --line:#d8cfbd;
+    --spine-cd:#8a5a3b;
+    --spine-tape:#4a5d52;
+    --spine-book:#5b4b73;
+    --accent:#b5622b;
+    --card:#fffdf8;
+    --danger:#a13a2c;
+    --app-font: "Pretendard","Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family: var(--app-font);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:36px 20px 80px;}
+
+  header.top{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    border-bottom:2px solid var(--ink);
+    padding-bottom:14px;
+    margin-bottom:22px;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  header.top h1{
+    font-size:28px;
+    margin:0;
+    letter-spacing:0.5px;
+    font-weight:600;
+  }
+  header.top .count{
+    font-size:14px;
+    color:var(--ink-soft);
+  }
+  .btn-export{
+    border:1px solid var(--ink-soft);
+    background:var(--card);
+    color:var(--ink);
+    padding:7px 14px;
+    border-radius:3px;
+    font-family:inherit;
+    font-size:13.5px;
+    cursor:pointer;
+  }
+  .btn-export:hover{border-color:var(--accent);color:var(--accent);}
+  .edit-name-btn{
+    border:none;
+    background:transparent;
+    cursor:pointer;
+    font-size:16px;
+    opacity:0.55;
+    padding:2px 4px;
+  }
+  .edit-name-btn:hover{opacity:1;}
+
+  .display-settings{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:18px;
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+  .display-settings label{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .display-settings select{
+    font-family:inherit;
+    font-size:13px;
+    padding:5px 7px;
+    border:1px solid var(--line);
+    border-radius:3px;
+    background:var(--card);
+    color:var(--ink);
+  }
+  .display-settings input[type="color"]{
+    width:30px;
+    height:26px;
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:1px;
+    background:var(--card);
+    cursor:pointer;
+  }
+  .display-settings .reset-btn{
+    border:1px dashed var(--ink-soft);
+    background:transparent;
+    color:var(--ink-soft);
+    padding:4px 9px;
+    border-radius:3px;
+    font-family:inherit;
+    font-size:12.5px;
+    cursor:pointer;
+  }
+  .display-settings .reset-btn:hover{color:var(--accent);border-color:var(--accent);}
+
+  nav.shelves{
+    display:flex;
+    gap:10px;
+    margin-bottom:24px;
+  }
+  nav.shelves button{
+    flex:1;
+    padding:12px 10px;
+    border:1px solid var(--line);
+    background:var(--card);
+    color:var(--ink-soft);
+    font-family:inherit;
+    font-size:15px;
+    cursor:pointer;
+    border-radius:3px;
+    transition:all .15s ease;
+    position:relative;
+  }
+  nav.shelves button.active{
+    color:var(--paper);
+    border-color:transparent;
+  }
+  nav.shelves button[data-k="cd"].active{background:var(--spine-cd);}
+  nav.shelves button[data-k="tape"].active{background:var(--spine-tape);}
+  nav.shelves button[data-k="book"].active{background:var(--spine-book);}
+  nav.shelves button.custom-tab.active{background:var(--accent);color:#fff;}
+  .add-tab-btn{
+    flex:0 0 auto;
+    border:1px dashed var(--ink-soft);
+    background:transparent;
+    color:var(--ink-soft);
+  }
+  .add-tab-btn:hover{color:var(--accent);border-color:var(--accent);}
+  .custom-tab .tab-close{
+    margin-left:6px;
+    opacity:0.7;
+    font-weight:700;
+  }
+  .custom-tab .tab-close:hover{opacity:1;}
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  form.add-form{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:18px;
+    margin-bottom:22px;
+  }
+  form.add-form .grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+  }
+  form.add-form .grid.wide{grid-template-columns:1fr;}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-size:12px;color:var(--ink-soft);}
+  .field input, .field select, .field textarea{
+    font-family:inherit;
+    font-size:15px;
+    padding:8px 9px;
+    border:1px solid var(--line);
+    border-radius:3px;
+    background:#fff;
+    color:var(--ink);
+  }
+  .field textarea{resize:vertical;min-height:38px;}
+
+  .set-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    grid-column:1/-1;
+    background:#f1ead9;
+    border:1px dashed var(--line);
+    padding:10px 12px;
+    border-radius:3px;
+  }
+  .set-row .stepper{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .set-row button{
+    width:28px;height:28px;
+    border:1px solid var(--ink-soft);
+    background:#fff;
+    border-radius:3px;
+    cursor:pointer;
+    font-size:15px;
+    line-height:1;
+  }
+  .set-row .num{
+    min-width:26px;
+    text-align:center;
+    font-weight:600;
+  }
+  .set-row .hint{font-size:12px;color:var(--ink-soft);}
+
+  .add-actions{
+    margin-top:14px;
+    display:flex;
+    justify-content:flex-end;
+  }
+  .btn-primary{
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    padding:9px 20px;
+    border-radius:3px;
+    font-family:inherit;
+    font-size:15px;
+    cursor:pointer;
+  }
+  .btn-primary:hover{opacity:0.92;}
+
+  .list{display:flex;flex-direction:column;gap:10px;}
+  .item{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-left:6px solid var(--spine-cd);
+    border-radius:3px;
+    padding:12px 14px;
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    align-items:flex-start;
+  }
+  .panel[data-k="tape"] .item{border-left-color:var(--spine-tape);}
+  .panel[data-k="book"] .item{border-left-color:var(--spine-book);}
+
+  .item .main{flex:1;}
+  .item .title{font-size:17px;font-weight:600;}
+  .item .sub{font-size:13.5px;color:var(--ink-soft);margin-top:3px;line-height:1.5;}
+  .badge{
+    display:inline-block;
+    font-size:12px;
+    background:#efe4cf;
+    border:1px solid var(--line);
+    padding:1px 7px;
+    border-radius:10px;
+    margin-left:6px;
+    color:var(--ink);
+  }
+  .item .actions{display:flex;gap:6px;flex-shrink:0;}
+  .item .actions button{
+    border:1px solid var(--line);
+    background:#fff;
+    border-radius:3px;
+    padding:5px 10px;
+    font-size:13px;
+    cursor:pointer;
+    color:var(--ink-soft);
+  }
+  .item .actions button.del{color:var(--danger);border-color:#e2c3ba;}
+
+  .empty{
+    text-align:center;
+    color:var(--ink-soft);
+    padding:40px 10px;
+    font-size:15px;
+    border:1px dashed var(--line);
+    border-radius:4px;
+  }
+
+  .status{font-size:13px;color:var(--ink-soft);margin-top:4px;min-height:16px;}
+
+  .search-bar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:18px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:8px 12px;
+  }
+  .search-bar input{
+    flex:1;
+    border:none;
+    outline:none;
+    background:transparent;
+    font-family:inherit;
+    font-size:15px;
+    color:var(--ink);
+    padding:4px 0;
+  }
+  .search-bar .icon{color:var(--ink-soft);font-size:15px;}
+  .search-bar .clear{
+    border:1px solid var(--line);
+    background:#fff;
+    border-radius:3px;
+    padding:4px 9px;
+    font-size:12px;
+    color:var(--ink-soft);
+    cursor:pointer;
+    display:none;
+  }
+  .search-bar.has-query .clear{display:inline-block;}
+
+  .search-results{display:none;flex-direction:column;gap:10px;}
+  .search-results.active{display:flex;}
+  .search-results .type-tag{
+    font-size:11px;
+    padding:1px 8px;
+    border-radius:10px;
+    margin-right:8px;
+    color:#fff;
+  }
+  .search-results .item[data-kind="cd"]{border-left-color:var(--spine-cd);}
+  .search-results .item[data-kind="tape"]{border-left-color:var(--spine-tape);}
+  .search-results .item[data-kind="book"]{border-left-color:var(--spine-book);}
+  .type-tag.cd{background:var(--spine-cd);}
+  .type-tag.tape{background:var(--spine-tape);}
+  .type-tag.book{background:var(--spine-book);}
+  .search-summary{font-size:13px;color:var(--ink-soft);margin-bottom:10px;}
+
+  .tracks-toggle{
+    background:none;
+    border:none;
+    color:var(--accent);
+    font-size:12.5px;
+    cursor:pointer;
+    padding:0;
+    margin-top:5px;
+    text-decoration:underline;
+  }
+  .tracks-list{
+    display:none;
+    margin-top:8px;
+    padding:8px 10px;
+    background:#f1ead9;
+    border-radius:3px;
+    font-size:13.5px;
+    line-height:1.7;
+  }
+  .tracks-list.open{display:block;}
+  .tracks-list ol{margin:0;padding-left:20px;}
+
+  .track-builder{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .track-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .track-row .track-num{
+    width:24px;
+    text-align:right;
+    font-size:13px;
+    color:var(--ink-soft);
+    flex-shrink:0;
+  }
+  .track-row input{
+    flex:1;
+    font-family:inherit;
+    font-size:14.5px;
+    padding:7px 9px;
+    border:1px solid var(--line);
+    border-radius:3px;
+    background:#fff;
+    color:var(--ink);
+  }
+  .track-row .track-remove{
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--danger);
+    width:26px;height:26px;
+    border-radius:3px;
+    cursor:pointer;
+    font-size:14px;
+    flex-shrink:0;
+  }
+  .add-track{
+    align-self:flex-start;
+    margin-top:8px;
+    border:1px dashed var(--ink-soft);
+    background:transparent;
+    color:var(--ink-soft);
+    padding:6px 12px;
+    border-radius:3px;
+    font-family:inherit;
+    font-size:13.5px;
+    cursor:pointer;
+  }
+  .add-track:hover{color:var(--accent);border-color:var(--accent);}
+
+  .track-group{
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:10px 12px;
+    background:#faf6ec;
+  }
+  .track-group + .track-group{margin-top:10px;}
+  .track-group-title{
+    font-size:13px;
+    font-weight:700;
+    color:var(--ink);
+    margin-bottom:8px;
+    letter-spacing:0.3px;
+  }
+  .track-subgroup{margin-top:4px;}
+  .track-subgroup + .track-subgroup{margin-top:12px;}
+  .track-side-title{
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .add-track-sub{
+    align-self:flex-start;
+    margin-top:6px;
+    border:1px dashed var(--ink-soft);
+    background:transparent;
+    color:var(--ink-soft);
+    padding:4px 10px;
+    border-radius:3px;
+    font-family:inherit;
+    font-size:12.5px;
+    cursor:pointer;
+    display:inline-block;
+  }
+  .add-track-sub:hover{color:var(--accent);border-color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <h1 id="mainTitle">나의 온라인 캐비넷</h1>
+      <button class="edit-name-btn" id="editNameBtn" title="내 이름 설정">✏️</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <div class="count" id="totalCount"></div>
+      <button class="btn-export" id="templateBtn">저장용 엑셀폼 받기</button>
+      <button class="btn-export" id="uploadBtn">엑셀 업로드</button>
+      <input type="file" id="uploadInput" accept=".xlsx,.xls" style="display:none;">
+      <button class="btn-export" id="exportBtn">엑셀로 내보내기</button>
+    </div>
+  </header>
+
+  <div class="display-settings">
+    <label>글씨체
+      <select id="fontSelect">
+        <option value="default">기본 고딕</option>
+        <option value="noto-sans">노토 산스</option>
+        <option value="noto-serif">노토 세리프</option>
+        <option value="nanum-gothic">나눔고딕</option>
+        <option value="nanum-myeongjo">나눔명조</option>
+        <option value="gowun-dodum">고운돋움</option>
+        <option value="gowun-batang">고운바탕</option>
+        <option value="black-han-sans">블랙한산스 (임팩트)</option>
+        <option value="do-hyeon">도현 (굵은고딕)</option>
+        <option value="jua">주아 (동글동글)</option>
+        <option value="gaegu">개구 (손글씨체)</option>
+        <option value="ibm-plex">IBM 플렉스 산스</option>
+        <option value="song-myung">송명 (붓글씨느낌)</option>
+      </select>
+    </label>
+    <label>배경색
+      <input type="color" id="bgColorInput" value="#f6f2e9">
+    </label>
+    <button class="reset-btn" id="resetDisplayBtn">기본값으로</button>
+  </div>
+
+  <div class="search-bar" id="searchBar">
+    <span class="icon">🔍</span>
+    <input type="text" id="searchInput" placeholder="제목, 아티스트/저자, 트랙명, 구매처 등으로 CD·테이프·도서 통합 검색">
+    <button class="clear" id="searchClear">지우기</button>
+  </div>
+
+  <nav class="shelves" id="shelvesNav">
+    <button data-k="cd" class="active">CD's</button>
+    <button data-k="tape">Tape's</button>
+    <button data-k="book">Book's</button>
+    <span id="customTabsContainer" style="display:contents;"></span>
+    <button id="addTabBtn" class="add-tab-btn" title="새 탭 추가">+ 탭 추가</button>
+  </nav>
+
+  <div class="search-results" id="searchResults">
+    <div class="search-summary" id="searchSummary"></div>
+    <div class="list" id="searchList"></div>
+  </div>
+
+  <!-- CD -->
+  <div class="panel active" data-k="cd">
+    <form class="add-form" id="form-cd">
+      <div class="grid">
+        <div class="field"><label>제목(앨범명)</label><input required name="title" placeholder="예: Nevermind"></div>
+        <div class="field"><label>아티스트</label><input name="artist" placeholder="예: Nirvana"></div>
+      </div>
+      <div class="grid" style="margin-top:12px;">
+        <div class="set-row" style="grid-column:1/-1;">
+          <span class="hint">디스크 구성</span>
+          <div class="stepper">
+            <button type="button" class="minus">−</button>
+            <span class="num" data-for="cd">1</span>
+            <button type="button" class="plus">+</button>
+          </div>
+          <span class="hint">CD (2~50CD 세트 지원)</span>
+        </div>
+      </div>
+      <div class="grid wide" style="margin-top:12px;">
+        <div class="field">
+          <label>트랙 목록</label>
+          <div class="track-builder" id="tracks-cd"></div>
+        </div>
+        <div class="field"><label>메모</label><textarea name="note" placeholder="상태, 특이사항 등"></textarea></div>
+      </div>
+      <div class="add-actions"><button type="submit" class="btn-primary">CD 추가</button></div>
+    </form>
+    <div class="list" id="list-cd"></div>
+  </div>
+
+  <!-- TAPE -->
+  <div class="panel" data-k="tape">
+    <form class="add-form" id="form-tape">
+      <div class="grid">
+        <div class="field"><label>제목(앨범명)</label><input required name="title" placeholder="예: Abbey Road"></div>
+        <div class="field"><label>아티스트</label><input name="artist" placeholder="예: The Beatles"></div>
+      </div>
+      <div class="grid" style="margin-top:12px;">
+        <div class="set-row" style="grid-column:1/-1;">
+          <span class="hint">테이프 구성</span>
+          <div class="stepper">
+            <button type="button" class="minus">−</button>
+            <span class="num" data-for="tape">1</span>
+            <button type="button" class="plus">+</button>
+          </div>
+          <span class="hint">Tape (더블 테이프 등 최대 50개까지)</span>
+        </div>
+      </div>
+      <div class="grid wide" style="margin-top:12px;">
+        <div class="field">
+          <label>트랙 목록</label>
+          <div class="track-builder" id="tracks-tape"></div>
+        </div>
+        <div class="field"><label>메모</label><textarea name="note" placeholder="상태, 특이사항 등"></textarea></div>
+      </div>
+      <div class="add-actions"><button type="submit" class="btn-primary">테이프 추가</button></div>
+    </form>
+    <div class="list" id="list-tape"></div>
+  </div>
+
+  <!-- BOOK -->
+  <div class="panel" data-k="book">
+    <form class="add-form" id="form-book">
+      <div class="grid">
+        <div class="field"><label>제목</label><input required name="title" placeholder="예: 데미안"></div>
+        <div class="field"><label>저자명</label><input name="author" placeholder="예: 헤르만 헤세"></div>
+      </div>
+      <div class="grid" style="margin-top:12px;">
+        <div class="field"><label>출판사</label><input name="publisher" placeholder="예: 민음사"></div>
+        <div class="field"><label>구매처</label><input name="place" placeholder="예: 교보문고"></div>
+      </div>
+      <div class="grid" style="margin-top:12px;">
+        <div class="field"><label>구매일</label><input type="date" name="purchaseDate"></div>
+        <div class="field"><label>메모</label><input name="note" placeholder="상태, 특이사항 등"></div>
+      </div>
+      <div class="add-actions"><button type="submit" class="btn-primary">도서 추가</button></div>
+    </form>
+    <div class="list" id="list-book"></div>
+  </div>
+
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+const KIND_KEYS = { cd:'items:cd', tape:'items:tape', book:'items:book' };
+const OWNER_KEY = 'settings:ownerName';
+const CUSTOM_TABS_KEY = 'settings:customTabs';
+let data = { cd:[], tape:[], book:[] };
+let setVal = { cd:1, tape:1 };
+let ownerName = '';
+let customTabs = []; // [{id, name}]
+
+// Claude 아티팩트 안에서 열람 중이면 window.storage(클라우드 저장)를 쓰고,
+// 다운로드한 파일을 브라우저에서 직접 열었을 때는 window.storage가 없으므로
+// 이 브라우저의 localStorage로 자동 대체해서 새로고침/재실행해도 데이터가 남도록 한다.
+const LOCAL_PREFIX = 'gunslib:';
+async function storageGet(key, shared){
+  if(window.storage){
+    try{ return await window.storage.get(key, shared); }catch(e){ return null; }
+  }
+  try{
+    const raw = localStorage.getItem(LOCAL_PREFIX+key);
+    return raw !== null ? { key, value: raw, shared } : null;
+  }catch(e){ return null; }
+}
+async function storageSet(key, value, shared){
+  if(window.storage){
+    try{ return await window.storage.set(key, value, shared); }catch(e){ return null; }
+  }
+  try{
+    localStorage.setItem(LOCAL_PREFIX+key, value);
+    return { key, value, shared };
+  }catch(e){ return null; }
+}
+async function storageDelete(key, shared){
+  if(window.storage){
+    try{ return await window.storage.delete(key, shared); }catch(e){ return null; }
+  }
+  try{
+    localStorage.removeItem(LOCAL_PREFIX+key);
+    return { key, deleted:true, shared };
+  }catch(e){ return null; }
+}
+
+function statusMsg(t){
+  const el = document.getElementById('status');
+  el.textContent = t;
+  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 2500);
+}
+
+function applyTitle(){
+  const titleEl = document.getElementById('mainTitle');
+  const display = ownerName ? `${ownerName}의 온라인 캐비넷` : '나의 온라인 캐비넷';
+  titleEl.textContent = display;
+  document.title = display;
+}
+
+async function loadOwnerName(){
+  try{
+    const res = await storageGet(OWNER_KEY, false);
+    ownerName = res && res.value ? res.value : '';
+  }catch(e){
+    ownerName = '';
+  }
+  applyTitle();
+}
+
+async function saveOwnerName(name){
+  ownerName = name.trim();
+  applyTitle();
+  try{
+    if(ownerName){
+      await storageSet(OWNER_KEY, ownerName, false);
+    }else{
+      try{ await storageDelete(OWNER_KEY, false); }catch(e){ /* 이미 없음 */ }
+    }
+  }catch(e){
+    statusMsg('이름 저장 중 오류가 발생했습니다.');
+  }
+}
+
+document.getElementById('editNameBtn').addEventListener('click', ()=>{
+  const input = window.prompt('보관함에 표시할 이름을 입력해주세요. (비워두면 "나의 온라인 캐비넷"으로 표시됩니다)', ownerName);
+  if(input === null) return;
+  saveOwnerName(input);
+});
+
+// ---- 글씨체 / 배경색 설정 (모두 무료 오픈소스 라이선스 폰트) ----
+const FONT_KEY = 'settings:fontFamily';
+const BG_KEY = 'settings:bgColor';
+const DEFAULT_BG = '#f6f2e9';
+const FONT_MAP = {
+  'default': '"Pretendard","Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif',
+  'noto-sans': '"Noto Sans KR", sans-serif',
+  'noto-serif': '"Noto Serif KR", serif',
+  'nanum-gothic': '"Nanum Gothic", sans-serif',
+  'nanum-myeongjo': '"Nanum Myeongjo", serif',
+  'gowun-dodum': '"Gowun Dodum", sans-serif',
+  'gowun-batang': '"Gowun Batang", serif',
+  'black-han-sans': '"Black Han Sans", sans-serif',
+  'do-hyeon': '"Do Hyeon", sans-serif',
+  'jua': '"Jua", sans-serif',
+  'gaegu': '"Gaegu", cursive',
+  'ibm-plex': '"IBM Plex Sans KR", sans-serif',
+  'song-myung': '"Song Myung", serif'
+};
+
+function applyFont(key){
+  document.documentElement.style.setProperty('--app-font', FONT_MAP[key] || FONT_MAP.default);
+}
+function applyBg(hex){
+  document.documentElement.style.setProperty('--paper', hex || DEFAULT_BG);
+}
+
+async function loadDisplaySettings(){
+  const [fontRes, bgRes] = await Promise.all([
+    storageGet(FONT_KEY, false),
+    storageGet(BG_KEY, false)
+  ]);
+  const fontKey = (fontRes && fontRes.value) ? fontRes.value : 'default';
+  const bgHex = (bgRes && bgRes.value) ? bgRes.value : DEFAULT_BG;
+  document.getElementById('fontSelect').value = fontKey;
+  document.getElementById('bgColorInput').value = bgHex;
+  applyFont(fontKey);
+  applyBg(bgHex);
+}
+
+document.getElementById('fontSelect').addEventListener('change', async (e)=>{
+  const key = e.target.value;
+  applyFont(key);
+  await storageSet(FONT_KEY, key, false);
+});
+
+document.getElementById('bgColorInput').addEventListener('input', async (e)=>{
+  const hex = e.target.value;
+  applyBg(hex);
+  await storageSet(BG_KEY, hex, false);
+});
+
+document.getElementById('resetDisplayBtn').addEventListener('click', async ()=>{
+  document.getElementById('fontSelect').value = 'default';
+  document.getElementById('bgColorInput').value = DEFAULT_BG;
+  applyFont('default');
+  applyBg(DEFAULT_BG);
+  await storageSet(FONT_KEY, 'default', false);
+  await storageSet(BG_KEY, DEFAULT_BG, false);
+  statusMsg('기본 글씨체/배경색으로 되돌렸습니다.');
+});
+
+function storageKeyFor(k){
+  if(KIND_KEYS[k]) return KIND_KEYS[k];
+  return 'items:custom:' + k;
+}
+
+async function loadAll(){
+  for(const k of Object.keys(KIND_KEYS)){
+    try{
+      const res = await storageGet(KIND_KEYS[k], false);
+      data[k] = res && res.value ? JSON.parse(res.value) : [];
+    }catch(e){
+      data[k] = [];
+    }
+  }
+  await loadCustomTabs();
+  renderAll();
+}
+
+async function loadCustomTabs(){
+  try{
+    const res = await storageGet(CUSTOM_TABS_KEY, false);
+    customTabs = res && res.value ? JSON.parse(res.value) : [];
+  }catch(e){
+    customTabs = [];
+  }
+  for(const tab of customTabs){
+    buildCustomTabDom(tab, false);
+    try{
+      const res = await storageGet(storageKeyFor(tab.id), false);
+      data[tab.id] = res && res.value ? JSON.parse(res.value) : [];
+    }catch(e){
+      data[tab.id] = [];
+    }
+  }
+}
+
+async function saveCustomTabsList(){
+  try{
+    await storageSet(CUSTOM_TABS_KEY, JSON.stringify(customTabs), false);
+  }catch(e){
+    statusMsg('탭 목록 저장 중 오류가 발생했습니다.');
+  }
+}
+
+async function save(k){
+  try{
+    await storageSet(storageKeyFor(k), JSON.stringify(data[k]), false);
+  }catch(e){
+    statusMsg('저장 중 오류가 발생했습니다.');
+  }
+}
+
+function renderAll(){
+  renderList('cd');
+  renderList('tape');
+  renderList('book');
+  customTabs.forEach(tab => renderList(tab.id));
+  updateTotal();
+}
+
+function updateTotal(){
+  const parts = [
+    `CD's ${data.cd.length}`,
+    `Tape's ${data.tape.length}`,
+    `Book's ${data.book.length}`
+  ];
+  let total = data.cd.length + data.tape.length + data.book.length;
+  customTabs.forEach(tab=>{
+    const n = (data[tab.id]||[]).length;
+    parts.push(`${tab.name} ${n}`);
+    total += n;
+  });
+  document.getElementById('totalCount').textContent = `${parts.join(' · ')} (총 ${total}개)`;
+}
+
+function esc(s){
+  return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function tracksBlock(item, k){
+  const tracks = item.tracks || [];
+  if(!tracks.length) return '';
+  const listId = k+'-tracks-'+item.id;
+  const trackHtml = tracks.map(t=>`<li>${esc(t)}</li>`).join('');
+  return `<button class="tracks-toggle" onclick="toggleTracks('${listId}')">트랙 ${tracks.length}곡 보기</button>
+    <div class="tracks-list" id="${listId}"><ol>${trackHtml}</ol></div>`;
+}
+
+function toggleTracks(id){
+  const el = document.getElementById(id);
+  if(el) el.classList.toggle('open');
+}
+
+function cdRowHtml(item, delAttr){
+  return `<div class="item" data-kind="cd">
+    <div class="main">
+      <div class="title">${esc(item.title)}${item.setCount>1?`<span class="badge">${item.setCount}CD 세트</span>`:''}</div>
+      <div class="sub">${esc(item.artist)||'아티스트 미상'}${item.note?' · '+esc(item.note):''}</div>
+      ${tracksBlock(item,'cd')}
+    </div>
+    <div class="actions"><button class="del" onclick="removeItem('cd','${item.id}')">삭제</button></div>
+  </div>`;
+}
+function tapeRowHtml(item){
+  return `<div class="item" data-kind="tape">
+    <div class="main">
+      <div class="title">${esc(item.title)}${item.setCount>1?`<span class="badge">${item.setCount}Tapes</span>`:''}</div>
+      <div class="sub">${esc(item.artist)||'아티스트 미상'}${item.note?' · '+esc(item.note):''}</div>
+      ${tracksBlock(item,'tape')}
+    </div>
+    <div class="actions"><button class="del" onclick="removeItem('tape','${item.id}')">삭제</button></div>
+  </div>`;
+}
+function bookRowHtml(item){
+  const meta = [
+    item.author?('저자: '+esc(item.author)):null,
+    item.publisher?('출판사: '+esc(item.publisher)):null,
+    item.place?('구매처: '+esc(item.place)):null,
+    item.purchaseDate?('구매일: '+esc(item.purchaseDate)):null
+  ].filter(Boolean).join(' · ');
+  return `<div class="item" data-kind="book">
+    <div class="main">
+      <div class="title">${esc(item.title)}</div>
+      <div class="sub">${meta || '추가 정보 없음'}${item.note?' · '+esc(item.note):''}</div>
+    </div>
+    <div class="actions"><button class="del" onclick="removeItem('book','${item.id}')">삭제</button></div>
+  </div>`;
+}
+
+function customRowHtml(item, tabId){
+  const meta = [
+    item.isGift ? '선물' : '구매',
+    item.date ? esc(item.date) : null
+  ].filter(Boolean).join(' · ');
+  return `<div class="item" data-kind="${esc(tabId)}" style="border-left-color:var(--accent);">
+    <div class="main">
+      <div class="title">${esc(item.title)}</div>
+      <div class="sub">${meta}${item.note?' · '+esc(item.note):''}</div>
+    </div>
+    <div class="actions"><button class="del" onclick="removeItem('${tabId}','${item.id}')">삭제</button></div>
+  </div>`;
+}
+
+function rowFnFor(k){
+  if(k==='cd') return cdRowHtml;
+  if(k==='tape') return tapeRowHtml;
+  if(k==='book') return bookRowHtml;
+  return (item)=> customRowHtml(item, k);
+}
+
+function kindLabelFor(k){
+  if(k==='cd') return "CD's";
+  if(k==='tape') return "Tape's";
+  if(k==='book') return "Book's";
+  const tab = customTabs.find(t=>t.id===k);
+  return tab ? tab.name : k;
+}
+
+function renderList(k){
+  const list = document.getElementById('list-'+k);
+  if(!list) return;
+  const items = data[k] || [];
+  if(!items.length){
+    list.innerHTML = `<div class="empty">아직 등록된 항목이 없습니다. 위 양식으로 추가해보세요.</div>`;
+    return;
+  }
+  const fn = rowFnFor(k);
+  list.innerHTML = items.map(item => fn(item)).join('');
+}
+
+// ---- 통합 검색 ----
+function matches(item, k, q){
+  const fields = [item.title, item.artist, item.author, item.publisher, item.place, item.note, item.purchaseDate, item.date];
+  if(item.tracks && item.tracks.length) fields.push(item.tracks.join(' '));
+  return fields.some(f => (f||'').toLowerCase().includes(q));
+}
+
+function allTabKeys(){
+  return ['cd','tape','book', ...customTabs.map(t=>t.id)];
+}
+
+function runSearch(q){
+  const query = q.trim().toLowerCase();
+  const bar = document.getElementById('searchBar');
+  const nav = document.getElementById('shelvesNav');
+  const panels = document.querySelectorAll('.panel');
+  const resultsWrap = document.getElementById('searchResults');
+
+  if(!query){
+    bar.classList.remove('has-query');
+    nav.style.display = '';
+    panels.forEach(p=>{ if(p.dataset.k === currentTab) p.classList.add('active'); });
+    resultsWrap.classList.remove('active');
+    return;
+  }
+
+  bar.classList.add('has-query');
+  nav.style.display = 'none';
+  panels.forEach(p=>p.classList.remove('active'));
+  resultsWrap.classList.add('active');
+
+  let html = '';
+  let total = 0;
+  allTabKeys().forEach(k=>{
+    (data[k]||[]).filter(item => matches(item, k, query)).forEach(item=>{
+      total++;
+      const row = rowFnFor(k)(item);
+      const isBuiltIn = (k==='cd'||k==='tape'||k==='book');
+      const tagHtml = isBuiltIn
+        ? `<span class="type-tag ${k}">${esc(kindLabelFor(k))}</span>`
+        : `<span class="type-tag" style="background:var(--accent);">${esc(kindLabelFor(k))}</span>`;
+      html += row.replace('<div class="title">', `<div class="title">${tagHtml}`);
+    });
+  });
+
+  document.getElementById('searchSummary').textContent = `"${q.trim()}" 검색 결과 ${total}건`;
+  document.getElementById('searchList').innerHTML = total
+    ? html
+    : `<div class="empty">일치하는 항목이 없습니다.</div>`;
+}
+
+function removeItem(k, id){
+  data[k] = data[k].filter(x => x.id !== id);
+  renderList(k);
+  updateTotal();
+  save(k);
+  const q = document.getElementById('searchInput').value;
+  if(q.trim()) runSearch(q);
+  statusMsg('삭제되었습니다.');
+}
+
+// ---- 탭 전환 ----
+let currentTab = 'cd';
+function activateTab(k){
+  currentTab = k;
+  document.querySelectorAll('nav.shelves button[data-k]').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const btn = document.querySelector(`nav.shelves button[data-k="${k}"]`);
+  if(btn) btn.classList.add('active');
+  const panel = document.querySelector(`.panel[data-k="${k}"]`);
+  if(panel) panel.classList.add('active');
+}
+
+document.querySelectorAll('nav.shelves button[data-k]').forEach(btn=>{
+  btn.addEventListener('click', ()=> activateTab(btn.dataset.k));
+});
+
+// search
+const searchInput = document.getElementById('searchInput');
+searchInput.addEventListener('input', ()=> runSearch(searchInput.value));
+document.getElementById('searchClear').addEventListener('click', ()=>{
+  searchInput.value = '';
+  runSearch('');
+  searchInput.focus();
+});
+
+// ---- 사용자 정의 탭 (물품명 / 구매·선물 / 날짜 / 메모) ----
+function slugify(name){
+  return 'tab_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+}
+
+function buildCustomTabDom(tab, activate){
+  // 탭 버튼
+  const btn = document.createElement('button');
+  btn.className = 'custom-tab';
+  btn.dataset.k = tab.id;
+  btn.innerHTML = `${esc(tab.name)}<span class="tab-close" title="탭 삭제">×</span>`;
+  btn.addEventListener('click', (e)=>{
+    if(e.target.classList.contains('tab-close')){
+      e.stopPropagation();
+      removeCustomTab(tab.id);
+      return;
+    }
+    activateTab(tab.id);
+  });
+  document.getElementById('customTabsContainer').appendChild(btn);
+
+  // 패널 (폼 + 목록)
+  const panel = document.createElement('div');
+  panel.className = 'panel';
+  panel.dataset.k = tab.id;
+  panel.innerHTML = `
+    <form class="add-form" id="form-${tab.id}">
+      <div class="grid">
+        <div class="field"><label>물품명</label><input required name="title" placeholder="예: 무선 이어폰"></div>
+        <div class="field"><label>날짜</label><input type="date" name="date"></div>
+      </div>
+      <div class="grid wide" style="margin-top:12px;">
+        <div class="field" style="flex-direction:row;align-items:center;gap:8px;">
+          <input type="checkbox" name="isGift" id="isGift-${tab.id}" style="width:16px;height:16px;">
+          <label for="isGift-${tab.id}" style="font-size:14px;color:var(--ink);">선물로 받음 (체크 안 하면 구매로 기록)</label>
+        </div>
+        <div class="field"><label>메모</label><textarea name="note" placeholder="상태, 특이사항 등"></textarea></div>
+      </div>
+      <div class="add-actions"><button type="submit" class="btn-primary">추가</button></div>
+    </form>
+    <div class="list" id="list-${tab.id}"></div>
+  `;
+  document.querySelector('.wrap').insertBefore(panel, document.getElementById('status'));
+
+  panel.querySelector('form').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const f = e.target;
+    const item = {
+      id: 'item_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+      title: f.title.value.trim(),
+      isGift: f.isGift.checked,
+      date: f.date.value,
+      note: f.note.value.trim()
+    };
+    if(!item.title) return;
+    if(!data[tab.id]) data[tab.id] = [];
+    data[tab.id].unshift(item);
+    f.reset();
+    renderList(tab.id); updateTotal();
+    await save(tab.id);
+    statusMsg('추가되었습니다.');
+  });
+
+  if(!data[tab.id]) data[tab.id] = [];
+  if(activate) activateTab(tab.id);
+}
+
+async function removeCustomTab(id){
+  const tab = customTabs.find(t=>t.id===id);
+  if(!tab) return;
+  if(!window.confirm(`"${tab.name}" 탭을 삭제할까요? 안에 담긴 항목도 함께 사라집니다.`)) return;
+
+  customTabs = customTabs.filter(t=>t.id!==id);
+  delete data[id];
+  await saveCustomTabsList();
+  try{ await storageDelete(storageKeyFor(id), false); }catch(e){ /* 무시 */ }
+
+  const btn = document.querySelector(`nav.shelves button[data-k="${id}"]`);
+  if(btn) btn.remove();
+  const panel = document.querySelector(`.panel[data-k="${id}"]`);
+  if(panel) panel.remove();
+
+  if(currentTab === id) activateTab('cd');
+  updateTotal();
+  statusMsg('탭을 삭제했습니다.');
+}
+
+document.getElementById('addTabBtn').addEventListener('click', async ()=>{
+  const name = window.prompt('추가할 탭 이름을 입력해주세요 (예: 피규어, 굿즈, 시계 등)');
+  if(!name || !name.trim()) return;
+  const tab = { id: slugify(name), name: name.trim() };
+  customTabs.push(tab);
+  buildCustomTabDom(tab, true);
+  await saveCustomTabsList();
+  updateTotal();
+  statusMsg(`"${tab.name}" 탭이 추가되었습니다.`);
+});
+
+// ---- 트랙 빌더: CD는 Disc별, Tape는 Tape×A/B면별로 그룹 관리 ----
+const trackState = {
+  cd: { discs: [ [''] ] },
+  tape: { tapes: [ { a:[''], b:[''] } ] }
+};
+
+function trackRowHtml(val, i, attrs){
+  const attrStr = Object.entries(attrs).map(([k,v])=>`data-${k}="${v}"`).join(' ');
+  return `<div class="track-row">
+    <span class="track-num">${i+1}.</span>
+    <input type="text" value="${esc(val)}" placeholder="곡명 입력" data-idx="${i}" ${attrStr}>
+    <button type="button" class="track-remove" data-idx="${i}" ${attrStr} title="삭제">×</button>
+  </div>`;
+}
+
+function renderCdTracks(){
+  const wrap = document.getElementById('tracks-cd');
+  const discs = trackState.cd.discs;
+  wrap.innerHTML = discs.map((discTracks, dIdx) => `
+    <div class="track-group">
+      <div class="track-group-title">Disc ${dIdx+1}</div>
+      ${discTracks.map((val,i)=>trackRowHtml(val, i, {disc:dIdx})).join('')}
+      <button type="button" class="add-track-sub" data-disc="${dIdx}">+ Disc ${dIdx+1} 트랙 추가</button>
+    </div>
+  `).join('');
+}
+
+function renderTapeTracks(){
+  const wrap = document.getElementById('tracks-tape');
+  const tapes = trackState.tape.tapes;
+  wrap.innerHTML = tapes.map((t, tIdx) => `
+    <div class="track-group">
+      ${tapes.length>1 ? `<div class="track-group-title">Tape ${tIdx+1}</div>` : ''}
+      <div class="track-subgroup">
+        <div class="track-side-title">A면</div>
+        ${t.a.map((val,i)=>trackRowHtml(val, i, {tape:tIdx, side:'a'})).join('')}
+        <button type="button" class="add-track-sub" data-tape="${tIdx}" data-side="a">+ A면 트랙 추가</button>
+      </div>
+      <div class="track-subgroup">
+        <div class="track-side-title">B면</div>
+        ${t.b.map((val,i)=>trackRowHtml(val, i, {tape:tIdx, side:'b'})).join('')}
+        <button type="button" class="add-track-sub" data-tape="${tIdx}" data-side="b">+ B면 트랙 추가</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function syncCdDiscs(){
+  const n = setVal.cd;
+  const discs = trackState.cd.discs;
+  while(discs.length < n) discs.push(['']);
+  while(discs.length > n) discs.pop();
+  renderCdTracks();
+}
+
+function syncTapeSides(){
+  const n = setVal.tape;
+  const tapes = trackState.tape.tapes;
+  while(tapes.length < n) tapes.push({ a:[''], b:[''] });
+  while(tapes.length > n) tapes.pop();
+  renderTapeTracks();
+}
+
+function initCdTrackBuilder(){
+  renderCdTracks();
+  const wrap = document.getElementById('tracks-cd');
+  wrap.addEventListener('input', e=>{
+    if(e.target.matches('input[data-idx]')){
+      const disc = Number(e.target.dataset.disc);
+      const idx = Number(e.target.dataset.idx);
+      trackState.cd.discs[disc][idx] = e.target.value;
+    }
+  });
+  wrap.addEventListener('click', e=>{
+    if(e.target.matches('.track-remove')){
+      const disc = Number(e.target.dataset.disc);
+      const idx = Number(e.target.dataset.idx);
+      const arr = trackState.cd.discs[disc];
+      if(arr.length > 1) arr.splice(idx, 1); else arr[0] = '';
+      renderCdTracks();
+    }else if(e.target.matches('.add-track-sub')){
+      const disc = Number(e.target.dataset.disc);
+      trackState.cd.discs[disc].push('');
+      renderCdTracks();
+      const inputs = wrap.querySelectorAll(`input[data-disc="${disc}"]`);
+      inputs[inputs.length-1].focus();
+    }
+  });
+}
+
+function initTapeTrackBuilder(){
+  renderTapeTracks();
+  const wrap = document.getElementById('tracks-tape');
+  wrap.addEventListener('input', e=>{
+    if(e.target.matches('input[data-idx]')){
+      const t = Number(e.target.dataset.tape);
+      const side = e.target.dataset.side;
+      const idx = Number(e.target.dataset.idx);
+      trackState.tape.tapes[t][side][idx] = e.target.value;
+    }
+  });
+  wrap.addEventListener('click', e=>{
+    if(e.target.matches('.track-remove')){
+      const t = Number(e.target.dataset.tape);
+      const side = e.target.dataset.side;
+      const idx = Number(e.target.dataset.idx);
+      const arr = trackState.tape.tapes[t][side];
+      if(arr.length > 1) arr.splice(idx, 1); else arr[0] = '';
+      renderTapeTracks();
+    }else if(e.target.matches('.add-track-sub')){
+      const t = Number(e.target.dataset.tape);
+      const side = e.target.dataset.side;
+      trackState.tape.tapes[t][side].push('');
+      renderTapeTracks();
+      const inputs = wrap.querySelectorAll(`input[data-tape="${t}"][data-side="${side}"]`);
+      inputs[inputs.length-1].focus();
+    }
+  });
+}
+
+function resetCdTrackBuilder(){
+  trackState.cd.discs = [ [''] ];
+  renderCdTracks();
+}
+function resetTapeTrackBuilder(){
+  trackState.tape.tapes = [ { a:[''], b:[''] } ];
+  renderTapeTracks();
+}
+
+function collectCdTracks(){
+  const out = [];
+  const multi = trackState.cd.discs.length > 1;
+  trackState.cd.discs.forEach((discTracks, dIdx)=>{
+    discTracks.map(s=>s.trim()).filter(Boolean).forEach(name=>{
+      out.push(multi ? `Disc ${dIdx+1}: ${name}` : name);
+    });
+  });
+  return out;
+}
+
+function collectTapeTracks(){
+  const out = [];
+  const multi = trackState.tape.tapes.length > 1;
+  trackState.tape.tapes.forEach((t, tIdx)=>{
+    const prefix = multi ? `Tape ${tIdx+1} ` : '';
+    t.a.map(s=>s.trim()).filter(Boolean).forEach(name=> out.push(`${prefix}A면: ${name}`));
+    t.b.map(s=>s.trim()).filter(Boolean).forEach(name=> out.push(`${prefix}B면: ${name}`));
+  });
+  return out;
+}
+
+initCdTrackBuilder();
+initTapeTrackBuilder();
+
+// steppers for CD / Tape set count
+function setupStepper(kind, min, max, onChange){
+  const row = document.querySelector(`#form-${kind} .set-row`);
+  const numEl = row.querySelector('.num');
+  row.querySelector('.minus').addEventListener('click', ()=>{
+    setVal[kind] = Math.max(min, setVal[kind]-1);
+    numEl.textContent = setVal[kind];
+    onChange();
+  });
+  row.querySelector('.plus').addEventListener('click', ()=>{
+    setVal[kind] = Math.min(max, setVal[kind]+1);
+    numEl.textContent = setVal[kind];
+    onChange();
+  });
+}
+setupStepper('cd', 1, 50, syncCdDiscs);
+setupStepper('tape', 1, 50, syncTapeSides);
+
+document.getElementById('form-cd').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const f = e.target;
+  const item = {
+    id: 'cd_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    title: f.title.value.trim(),
+    artist: f.artist.value.trim(),
+    setCount: setVal.cd,
+    tracks: collectCdTracks(),
+    note: f.note.value.trim()
+  };
+  if(!item.title) return;
+  data.cd.unshift(item);
+  f.reset();
+  setVal.cd = 1;
+  document.querySelector('#form-cd .num').textContent = '1';
+  resetCdTrackBuilder();
+  renderList('cd'); updateTotal();
+  await save('cd');
+  statusMsg('CD가 추가되었습니다.');
+});
+
+document.getElementById('form-tape').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const f = e.target;
+  const item = {
+    id: 'tape_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    title: f.title.value.trim(),
+    artist: f.artist.value.trim(),
+    setCount: setVal.tape,
+    tracks: collectTapeTracks(),
+    note: f.note.value.trim()
+  };
+  if(!item.title) return;
+  data.tape.unshift(item);
+  f.reset();
+  setVal.tape = 1;
+  document.querySelector('#form-tape .num').textContent = '1';
+  resetTapeTrackBuilder();
+  renderList('tape'); updateTotal();
+  await save('tape');
+  statusMsg('테이프가 추가되었습니다.');
+});
+
+document.getElementById('form-book').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const f = e.target;
+  const item = {
+    id: 'book_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    title: f.title.value.trim(),
+    author: f.author.value.trim(),
+    publisher: f.publisher.value.trim(),
+    place: f.place.value.trim(),
+    purchaseDate: f.purchaseDate.value,
+    note: f.note.value.trim()
+  };
+  if(!item.title) return;
+  data.book.unshift(item);
+  f.reset();
+  renderList('book'); updateTotal();
+  await save('book');
+  statusMsg('도서가 추가되었습니다.');
+});
+
+// ---- 엑셀 열 정의 (내보내기/폼/업로드 공용) ----
+const COLS_CD = ['제목','아티스트','CD Number','트랙','메모'];
+const COLS_TAPE = ['제목','아티스트','side','트랙','메모'];
+const COLS_BOOK = ['제목','저자명','출판사','구매처','구매일','메모'];
+const COLS_CUSTOM = ['물품명','구매/선물','날짜','메모'];
+
+function safeSheetName(name){
+  // 엑셀 시트명 제약: 31자 이내, \ / ? * [ ] : 금지
+  let s = String(name).replace(/[\\/?*\[\]:]/g, '_').trim();
+  if(!s) s = 'Sheet';
+  return s.slice(0, 31);
+}
+
+function parseCdTrackString(s){
+  const m = String(s).match(/^Disc\s+(\d+):\s*(.*)$/i);
+  if(m) return { discNum: parseInt(m[1],10), name: m[2] };
+  return { discNum: 1, name: String(s) };
+}
+
+function parseTapeTrackString(s){
+  const stripped = String(s).replace(/^Tape\s+\d+\s+/i, '');
+  const m = stripped.match(/^(A|B)면:\s*(.*)$/i);
+  if(m) return { side: m[1].toUpperCase(), name: m[2] };
+  return { side: 'A', name: stripped };
+}
+
+// ---- 엑셀 내보내기 (트랙 1개 = 1행) ----
+function exportToExcel(){
+  if(typeof XLSX === 'undefined'){
+    statusMsg('엑셀 라이브러리를 불러오지 못했습니다. 네트워크 상태를 확인해주세요.');
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+
+  const cdRows = [];
+  data.cd.forEach(item => {
+    const tracks = item.tracks || [];
+    if(!tracks.length){
+      cdRows.push({ '제목': item.title, '아티스트': item.artist||'', 'CD Number': item.setCount||1, '트랙': '', '메모': item.note||'' });
+    }else{
+      tracks.forEach(t=>{
+        const { discNum, name } = parseCdTrackString(t);
+        cdRows.push({ '제목': item.title, '아티스트': item.artist||'', 'CD Number': discNum, '트랙': name, '메모': item.note||'' });
+      });
+    }
+  });
+
+  const tapeRows = [];
+  data.tape.forEach(item => {
+    const tracks = item.tracks || [];
+    if(!tracks.length){
+      tapeRows.push({ '제목': item.title, '아티스트': item.artist||'', 'side': '', '트랙': '', '메모': item.note||'' });
+    }else{
+      tracks.forEach(t=>{
+        const { side, name } = parseTapeTrackString(t);
+        tapeRows.push({ '제목': item.title, '아티스트': item.artist||'', 'side': side, '트랙': name, '메모': item.note||'' });
+      });
+    }
+  });
+
+  const bookRows = data.book.map(item => ({
+    '제목': item.title,
+    '저자명': item.author || '',
+    '출판사': item.publisher || '',
+    '구매처': item.place || '',
+    '구매일': item.purchaseDate || '',
+    '메모': item.note || ''
+  }));
+
+  const sheetCd = XLSX.utils.json_to_sheet(cdRows.length ? cdRows : [], { header: COLS_CD });
+  const sheetTape = XLSX.utils.json_to_sheet(tapeRows.length ? tapeRows : [], { header: COLS_TAPE });
+  const sheetBook = XLSX.utils.json_to_sheet(bookRows.length ? bookRows : [], { header: COLS_BOOK });
+
+  XLSX.utils.book_append_sheet(wb, sheetCd, 'CD');
+  XLSX.utils.book_append_sheet(wb, sheetTape, '테이프');
+  XLSX.utils.book_append_sheet(wb, sheetBook, '도서');
+
+  customTabs.forEach(tab=>{
+    const rows = (data[tab.id]||[]).map(item => ({
+      '물품명': item.title,
+      '구매/선물': item.isGift ? '선물' : '구매',
+      '날짜': item.date || '',
+      '메모': item.note || ''
+    }));
+    const sheet = XLSX.utils.json_to_sheet(rows.length ? rows : [], { header: COLS_CUSTOM });
+    XLSX.utils.book_append_sheet(wb, sheet, safeSheetName(tab.name));
+  });
+
+  const today = new Date().toISOString().slice(0,10);
+  const namePart = ownerName ? sanitizeFileName(ownerName) : '나의';
+  XLSX.writeFile(wb, `${namePart}_온라인캐비넷_${today}.xlsx`);
+  statusMsg('엑셀 파일로 내보냈습니다.');
+}
+
+function sanitizeFileName(s){
+  return s.replace(/[\\/:*?"<>|]/g, '').trim() || '나의';
+}
+
+// ---- 저장용 빈 엑셀 폼 다운로드 ----
+function downloadTemplate(){
+  if(typeof XLSX === 'undefined'){
+    statusMsg('엑셀 라이브러리를 불러오지 못했습니다. 네트워크 상태를 확인해주세요.');
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+  const sheetCd = XLSX.utils.aoa_to_sheet([COLS_CD]);
+  const sheetTape = XLSX.utils.aoa_to_sheet([COLS_TAPE]);
+  const sheetBook = XLSX.utils.aoa_to_sheet([COLS_BOOK]);
+  XLSX.utils.book_append_sheet(wb, sheetCd, 'CD');
+  XLSX.utils.book_append_sheet(wb, sheetTape, '테이프');
+  XLSX.utils.book_append_sheet(wb, sheetBook, '도서');
+
+  customTabs.forEach(tab=>{
+    const sheet = XLSX.utils.aoa_to_sheet([COLS_CUSTOM]);
+    XLSX.utils.book_append_sheet(wb, sheet, safeSheetName(tab.name));
+  });
+
+  XLSX.writeFile(wb, `${ownerName ? sanitizeFileName(ownerName) : '나의'}_온라인캐비넷_입력폼.xlsx`);
+  statusMsg('빈 엑셀 폼을 다운로드했습니다. 채운 뒤 업로드해주세요.');
+}
+
+// ---- 엑셀 업로드 → 데이터로 가져오기 ----
+function normalizeDateCell(v){
+  if(v === undefined || v === null || v === '') return '';
+  if(typeof v === 'number'){
+    // 엑셀 날짜 일련번호 → YYYY-MM-DD
+    const ms = Math.round((v - 25569) * 86400 * 1000);
+    const d = new Date(ms);
+    if(!isNaN(d)) return d.toISOString().slice(0,10);
+  }
+  return String(v).trim();
+}
+
+function groupKey(title, artist){
+  return title + '||' + (artist||'');
+}
+
+function importFromExcel(file){
+  if(typeof XLSX === 'undefined'){
+    statusMsg('엑셀 라이브러리를 불러오지 못했습니다. 네트워크 상태를 확인해주세요.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = async (e)=>{
+    let wb;
+    try{
+      wb = XLSX.read(new Uint8Array(e.target.result), { type:'array', cellDates:false });
+    }catch(err){
+      statusMsg('엑셀 파일을 읽는 중 오류가 발생했습니다.');
+      return;
+    }
+
+    let addedCd = 0, addedTape = 0, addedBook = 0;
+
+    // ---- CD: 행 단위 트랙 → 제목+아티스트 기준으로 그룹핑, CD Number별로 트랙 묶기 ----
+    const cdSheet = wb.Sheets['CD'];
+    if(cdSheet){
+      const rows = XLSX.utils.sheet_to_json(cdSheet, { defval:'' });
+      const groups = new Map(); // key -> { title, artist, note, discs: Map(discNum -> [track,...]) }
+      rows.forEach(row=>{
+        const title = String(row['제목']||'').trim();
+        if(!title) return;
+        const artist = String(row['아티스트']||'').trim();
+        const note = String(row['메모']||'').trim();
+        const trackName = String(row['트랙']||'').trim();
+        let discNum = parseInt(row['CD Number'], 10);
+        if(!discNum || discNum < 1) discNum = 1;
+
+        const key = groupKey(title, artist);
+        if(!groups.has(key)){
+          groups.set(key, { title, artist, note, discs: new Map() });
+        }
+        const g = groups.get(key);
+        if(!g.note && note) g.note = note;
+        if(trackName){
+          if(!g.discs.has(discNum)) g.discs.set(discNum, []);
+          g.discs.get(discNum).push(trackName);
+        }else if(!g.discs.has(discNum)){
+          g.discs.set(discNum, []);
+        }
+      });
+
+      groups.forEach(g=>{
+        const discNums = Array.from(g.discs.keys()).sort((a,b)=>a-b);
+        const maxDisc = discNums.length ? Math.max(...discNums) : 1;
+        const multi = maxDisc > 1;
+        const tracks = [];
+        discNums.forEach(dn=>{
+          g.discs.get(dn).forEach(name=>{
+            tracks.push(multi ? `Disc ${dn}: ${name}` : name);
+          });
+        });
+        data.cd.unshift({
+          id: 'cd_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+          title: g.title,
+          artist: g.artist,
+          setCount: maxDisc,
+          tracks,
+          note: g.note
+        });
+        addedCd++;
+      });
+    }
+
+    // ---- 테이프: 행 단위 트랙 → 제목+아티스트 기준으로 그룹핑, side(A/B)별로 트랙 묶기 ----
+    const tapeSheet = wb.Sheets['테이프'];
+    if(tapeSheet){
+      const rows = XLSX.utils.sheet_to_json(tapeSheet, { defval:'' });
+      const groups = new Map(); // key -> { title, artist, note, a:[...], b:[...] }
+      rows.forEach(row=>{
+        const title = String(row['제목']||'').trim();
+        if(!title) return;
+        const artist = String(row['아티스트']||'').trim();
+        const note = String(row['메모']||'').trim();
+        const trackName = String(row['트랙']||'').trim();
+        const sideRaw = String(row['side']||'').trim().toUpperCase();
+        const side = sideRaw.startsWith('B') ? 'B' : 'A';
+
+        const key = groupKey(title, artist);
+        if(!groups.has(key)){
+          groups.set(key, { title, artist, note, a: [], b: [] });
+        }
+        const g = groups.get(key);
+        if(!g.note && note) g.note = note;
+        if(trackName) g[side.toLowerCase()].push(trackName);
+      });
+
+      groups.forEach(g=>{
+        const tracks = [
+          ...g.a.map(name=>`A면: ${name}`),
+          ...g.b.map(name=>`B면: ${name}`)
+        ];
+        data.tape.unshift({
+          id: 'tape_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+          title: g.title,
+          artist: g.artist,
+          setCount: 1,
+          tracks,
+          note: g.note
+        });
+        addedTape++;
+      });
+    }
+
+    const bookSheet = wb.Sheets['도서'];
+    if(bookSheet){
+      const rows = XLSX.utils.sheet_to_json(bookSheet, { defval:'' });
+      rows.forEach(row=>{
+        const title = String(row['제목']||'').trim();
+        if(!title) return;
+        data.book.unshift({
+          id: 'book_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+          title,
+          author: String(row['저자명']||'').trim(),
+          publisher: String(row['출판사']||'').trim(),
+          place: String(row['구매처']||'').trim(),
+          purchaseDate: normalizeDateCell(row['구매일']),
+          note: String(row['메모']||'').trim()
+        });
+        addedBook++;
+      });
+    }
+
+    // ---- 사용자 정의 탭: 탭 이름과 일치하는 시트를 찾아 가져오기 ----
+    const addedCustom = {}; // tabId -> count
+
+    function importCustomRows(sheet, tabId){
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval:'' });
+      let count = 0;
+      rows.forEach(row=>{
+        const title = String(row['물품명']||'').trim();
+        if(!title) return;
+        const typeRaw = String(row['구매/선물']||'').trim();
+        if(!data[tabId]) data[tabId] = [];
+        data[tabId].unshift({
+          id: 'item_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+          title,
+          isGift: typeRaw.includes('선물'),
+          date: normalizeDateCell(row['날짜']),
+          note: String(row['메모']||'').trim()
+        });
+        count++;
+      });
+      return count;
+    }
+
+    customTabs.forEach(tab=>{
+      const sheet = wb.Sheets[safeSheetName(tab.name)];
+      if(!sheet) return;
+      const count = importCustomRows(sheet, tab.id);
+      if(count) addedCustom[tab.id] = count;
+    });
+
+    // ---- 기존 탭에 없는 시트는 새 탭을 자동으로 만들어서 가져오기 ----
+    const knownSheetNames = new Set(['CD','테이프','도서', ...customTabs.map(t=>safeSheetName(t.name))]);
+    const newTabsCreated = [];
+    for(const sheetName of wb.SheetNames){
+      if(knownSheetNames.has(sheetName)) continue;
+      const sheet = wb.Sheets[sheetName];
+      const rows0 = XLSX.utils.sheet_to_json(sheet, { defval:'' });
+      // '물품명' 또는 '구매/선물' 열이 있는 시트만 사용자 정의 탭 형식으로 인식
+      const looksCustom = rows0.length === 0 || Object.prototype.hasOwnProperty.call(rows0[0]||{}, '물품명');
+      if(!looksCustom) continue;
+
+      const newTab = { id: slugify(sheetName), name: sheetName.trim() || sheetName };
+      customTabs.push(newTab);
+      buildCustomTabDom(newTab, false);
+      const count = importCustomRows(sheet, newTab.id);
+      if(count) addedCustom[newTab.id] = count;
+      newTabsCreated.push(newTab);
+    }
+    if(newTabsCreated.length) await saveCustomTabsList();
+
+    if(addedCd) await save('cd');
+    if(addedTape) await save('tape');
+    if(addedBook) await save('book');
+    for(const tabId of Object.keys(addedCustom)){
+      await save(tabId);
+      renderList(tabId);
+    }
+    renderAll();
+    const q = document.getElementById('searchInput').value;
+    if(q.trim()) runSearch(q);
+
+    const addedCustomTotal = Object.values(addedCustom).reduce((a,b)=>a+b, 0);
+    const customPart = customTabs
+      .filter(t=>addedCustom[t.id])
+      .map(t=>`${t.name} ${addedCustom[t.id]}건${newTabsCreated.includes(t) ? ' (새 탭)' : ''}`)
+      .join(', ');
+    const total = addedCd + addedTape + addedBook + addedCustomTotal;
+    statusMsg(total
+      ? `엑셀에서 CD ${addedCd}건, 테이프 ${addedTape}건, 도서 ${addedBook}건${customPart ? ', '+customPart : ''}을 불러왔습니다.`
+      : '가져올 항목을 찾지 못했습니다. 시트 이름과 열 제목을 확인해주세요.');
+  };
+  reader.onerror = ()=> statusMsg('파일을 읽는 중 오류가 발생했습니다.');
+  reader.readAsArrayBuffer(file);
+}
+
+document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+document.getElementById('templateBtn').addEventListener('click', downloadTemplate);
+document.getElementById('uploadBtn').addEventListener('click', ()=>{
+  document.getElementById('uploadInput').click();
+});
+document.getElementById('uploadInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(file) importFromExcel(file);
+  e.target.value = '';
+});
+
+loadOwnerName();
+loadDisplaySettings();
+loadAll();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
