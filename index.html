@@ -290,6 +290,19 @@
   .item .main{flex:1;}
   .item .title{font-size:17px;font-weight:600;}
   .item .sub{font-size:13.5px;color:var(--ink-soft);margin-top:3px;line-height:1.5;}
+  .item .sub.artist-line{margin-top:0;margin-bottom:2px;}
+  .item .title.clickable{cursor:pointer;}
+  .item .title.clickable:hover{color:var(--accent);}
+  .track-hint{
+    font-size:12px;
+    font-weight:400;
+    color:var(--accent);
+    margin-left:8px;
+    text-decoration:underline;
+    white-space:nowrap;
+  }
+  .track-hint::after{content:' ▾';}
+  .title.expanded .track-hint::after{content:' ▴';}
   .badge{
     display:inline-block;
     font-size:12px;
@@ -923,15 +936,26 @@ function esc(s){
 function tracksBlock(item, k){
   const tracks = item.tracks || [];
   if(!tracks.length) return '';
-  const listId = k+'-tracks-'+item.id;
   const trackHtml = tracks.map(t=>`<li>${esc(t)}</li>`).join('');
-  return `<button class="tracks-toggle" onclick="toggleTracks('${listId}')">트랙 ${tracks.length}곡 보기</button>
-    <div class="tracks-list" id="${listId}"><ol>${trackHtml}</ol></div>`;
+  return `<div class="tracks-list"><ol>${trackHtml}</ol></div>`;
 }
 
-function toggleTracks(id){
-  const el = document.getElementById(id);
-  if(el) el.classList.toggle('open');
+// 제목(.title)을 누르면 바로 아래의 트랙 목록을 펼치거나 접음
+function toggleTracks(titleEl){
+  const list = titleEl.nextElementSibling;
+  if(list && list.classList.contains('tracks-list')){
+    list.classList.toggle('open');
+    titleEl.classList.toggle('expanded');
+  }
+}
+
+// 트랙이 있으면 제목을 눌러 펼칠 수 있는 제목 줄, 없으면 일반 제목 줄
+function mediaTitleHtml(item, badge){
+  const n = (item.tracks || []).length;
+  if(!n) return `<div class="title">${esc(item.title)}${badge}</div>`;
+  return `<div class="title clickable" role="button" tabindex="0" title="눌러서 트랙 목록 보기"
+      onclick="toggleTracks(this)"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTracks(this);}">${esc(item.title)}${badge}<span class="track-hint">트랙 ${n}곡</span></div>`;
 }
 
 function withThumb(item, innerHtml){
@@ -943,8 +967,8 @@ function withThumb(item, innerHtml){
 }
 
 function cdRowHtml(item, delAttr){
-  const inner = `<div class="title">${esc(item.title)}${item.setCount>1?`<span class="badge">${item.setCount}CD 세트</span>`:''}</div>
-      <div class="sub">${esc(item.artist)||'아티스트 미상'}${item.note?' · '+esc(item.note):''}</div>
+  const inner = `<div class="sub artist-line">${esc(item.artist)||'아티스트 미상'}${item.note?' · '+esc(item.note):''}</div>
+      ${mediaTitleHtml(item, item.setCount>1?`<span class="badge">${item.setCount}CD 세트</span>`:'')}
       ${tracksBlock(item,'cd')}`;
   return `<div class="item" data-kind="cd">
     <div class="main">
@@ -954,8 +978,8 @@ function cdRowHtml(item, delAttr){
   </div>`;
 }
 function tapeRowHtml(item){
-  const inner = `<div class="title">${esc(item.title)}${item.setCount>1?`<span class="badge">${item.setCount}Tapes</span>`:''}</div>
-      <div class="sub">${esc(item.artist)||'아티스트 미상'}${item.note?' · '+esc(item.note):''}</div>
+  const inner = `<div class="sub artist-line">${esc(item.artist)||'아티스트 미상'}${item.note?' · '+esc(item.note):''}</div>
+      ${mediaTitleHtml(item, item.setCount>1?`<span class="badge">${item.setCount}Tapes</span>`:'')}
       ${tracksBlock(item,'tape')}`;
   return `<div class="item" data-kind="tape">
     <div class="main">
@@ -1064,7 +1088,7 @@ function runSearch(q){
       const tagHtml = isBuiltIn
         ? `<span class="type-tag ${k}">${esc(kindLabelFor(k))}</span>`
         : `<span class="type-tag" style="background:var(--accent);">${esc(kindLabelFor(k))}</span>`;
-      html += row.replace('<div class="title">', `<div class="title">${tagHtml}`);
+      html += row.replace(/<div class="title([^"]*)"([^>]*)>/, (m, cls, attrs)=> `<div class="title${cls}"${attrs}>${tagHtml}`);
     });
   });
 
@@ -1612,20 +1636,33 @@ function importFromExcel(file){
     if(cdSheet){
       const rows = XLSX.utils.sheet_to_json(cdSheet, { defval:'' });
       const groups = new Map(); // key -> { title, artist, note, discs: Map(discNum -> [track,...]) }
+      let prevTitle = '', prevArtist = '';
       rows.forEach(row=>{
-        const title = String(row['제목']||'').trim();
-        if(!title) return;
-        const artist = String(row['아티스트']||'').trim();
+        let title = String(row['제목']||'').trim();
+        let artist = String(row['아티스트']||'').trim();
         const note = String(row['메모']||'').trim();
         const trackName = String(row['트랙']||'').trim();
-        let discNum = parseInt(row['CD Number'], 10);
-        if(!discNum || discNum < 1) discNum = 1;
-
+        // 제목이 빈칸이면 바로 윗줄의 앨범에 속한 곡으로 간주 (제목·아티스트를 첫 줄에만 적어도 됨)
+        if(!title){
+          if(!prevTitle || !(trackName || note || artist)) return;
+          title = prevTitle;
+          if(!artist) artist = prevArtist;
+        }else if(!artist){
+          // 제목이 바뀌어도 아티스트가 빈칸이면 윗줄 아티스트를 계속 이어받음
+          artist = prevArtist;
+        }
+        prevTitle = title; prevArtist = artist;
         const key = groupKey(title, artist);
         if(!groups.has(key)){
-          groups.set(key, { title, artist, note, discs: new Map() });
+          groups.set(key, { title, artist, note, discs: new Map(), lastDisc: 1 });
         }
         const g = groups.get(key);
+
+        // CD Number가 빈칸이면 같은 앨범의 바로 윗줄 값을 이어받음 (새 앨범은 1부터 시작)
+        let discNum = parseInt(row['CD Number'], 10);
+        if(!discNum || discNum < 1) discNum = g.lastDisc;
+        g.lastDisc = discNum;
+
         if(!g.note && note) g.note = note;
         if(trackName){
           if(!g.discs.has(discNum)) g.discs.set(discNum, []);
@@ -1662,20 +1699,35 @@ function importFromExcel(file){
     if(tapeSheet){
       const rows = XLSX.utils.sheet_to_json(tapeSheet, { defval:'' });
       const groups = new Map(); // key -> { title, artist, note, a:[...], b:[...] }
+      let prevTitle = '', prevArtist = '';
       rows.forEach(row=>{
-        const title = String(row['제목']||'').trim();
-        if(!title) return;
-        const artist = String(row['아티스트']||'').trim();
+        let title = String(row['제목']||'').trim();
+        let artist = String(row['아티스트']||'').trim();
         const note = String(row['메모']||'').trim();
         const trackName = String(row['트랙']||'').trim();
+        // 제목이 빈칸이면 바로 윗줄의 테이프에 속한 곡으로 간주
+        if(!title){
+          if(!prevTitle || !(trackName || note || artist)) return;
+          title = prevTitle;
+          if(!artist) artist = prevArtist;
+        }else if(!artist){
+          // 제목이 바뀌어도 아티스트가 빈칸이면 윗줄 아티스트를 계속 이어받음
+          artist = prevArtist;
+        }
+        prevTitle = title; prevArtist = artist;
         const sideRaw = String(row['side']||'').trim().toUpperCase();
-        const side = sideRaw.startsWith('B') ? 'B' : 'A';
 
         const key = groupKey(title, artist);
         if(!groups.has(key)){
-          groups.set(key, { title, artist, note, a: [], b: [] });
+          groups.set(key, { title, artist, note, a: [], b: [], lastSide: 'A' });
         }
         const g = groups.get(key);
+
+        // side가 빈칸이면 같은 테이프의 바로 윗줄 값을 이어받음 (새 테이프는 A면부터 시작)
+        let side = g.lastSide;
+        if(sideRaw) side = sideRaw.startsWith('B') ? 'B' : 'A';
+        g.lastSide = side;
+
         if(!g.note && note) g.note = note;
         if(trackName) g[side.toLowerCase()].push(trackName);
       });
