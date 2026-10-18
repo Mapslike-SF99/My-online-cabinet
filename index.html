@@ -622,8 +622,8 @@
   <div class="panel active" data-k="cd">
     <form class="add-form" id="form-cd">
       <div class="grid">
-        <div class="field"><label>제목(앨범명)</label><input required name="title" placeholder="예: Nevermind"></div>
         <div class="field"><label>아티스트</label><input name="artist" placeholder="예: Nirvana"></div>
+        <div class="field"><label>제목(앨범명)</label><input required name="title" placeholder="예: Nevermind"></div>
       </div>
       <div class="grid" style="margin-top:12px;">
         <div class="set-row" style="grid-column:1/-1;">
@@ -652,8 +652,8 @@
   <div class="panel" data-k="tape">
     <form class="add-form" id="form-tape">
       <div class="grid">
-        <div class="field"><label>제목(앨범명)</label><input required name="title" placeholder="예: Abbey Road"></div>
         <div class="field"><label>아티스트</label><input name="artist" placeholder="예: The Beatles"></div>
+        <div class="field"><label>제목(앨범명)</label><input required name="title" placeholder="예: Abbey Road"></div>
       </div>
       <div class="grid" style="margin-top:12px;">
         <div class="set-row" style="grid-column:1/-1;">
@@ -682,8 +682,8 @@
   <div class="panel" data-k="book">
     <form class="add-form" id="form-book">
       <div class="grid">
-        <div class="field"><label>제목</label><input required name="title" placeholder="예: 데미안"></div>
         <div class="field"><label>저자명</label><input name="author" placeholder="예: 헤르만 헤세"></div>
+        <div class="field"><label>제목</label><input required name="title" placeholder="예: 데미안"></div>
       </div>
       <div class="grid" style="margin-top:12px;">
         <div class="field"><label>출판사</label><input name="publisher" placeholder="예: 민음사"></div>
@@ -746,7 +746,7 @@
   <footer class="app-footer">
     <a href="https://blog.naver.com/mapslike" target="_blank" rel="noopener noreferrer">Mapslike가 Claude의 도움을 받아 제작</a>
     <div class="app-footer-sub">(클릭하면 mapslike의 블로그로 이동합니다)</div>
-    <div class="app-footer-ver">최종수정일 2026-10-12 06:22</div>
+    <div class="app-footer-ver">최종수정일 2026-10-14 06:47</div>
   </footer>
 </div>
 
@@ -1061,12 +1061,12 @@ function tapeRowHtml(item){
 }
 function bookRowHtml(item){
   const meta = [
-    item.author?('저자: '+esc(item.author)):null,
     item.publisher?('출판사: '+esc(item.publisher)):null,
     item.place?('구매처: '+esc(item.place)):null,
     item.purchaseDate?('구매일: '+esc(item.purchaseDate)):null
   ].filter(Boolean).join(' · ');
-  const inner = `<div class="title">${esc(item.title)}</div>
+  const inner = `<div class="sub artist-line">${esc(item.author)||'저자 미상'}</div>
+      <div class="title">${esc(item.title)}</div>
       <div class="sub">${meta || '추가 정보 없음'}${item.note?' · '+esc(item.note):''}</div>`;
   return `<div class="item" data-kind="book">
     <div class="main">
@@ -1549,9 +1549,9 @@ document.getElementById('form-book').addEventListener('submit', async e=>{
 });
 
 // ---- 엑셀 열 정의 (내보내기/폼/업로드 공용) ----
-const COLS_CD = ['제목','아티스트','CD Number','트랙','메모'];
-const COLS_TAPE = ['제목','아티스트','side','트랙','메모'];
-const COLS_BOOK = ['제목','저자명','출판사','구매처','구매일','메모'];
+const COLS_CD = ['아티스트','제목','CD Number','트랙','메모'];
+const COLS_TAPE = ['아티스트','제목','side','트랙','메모'];
+const COLS_BOOK = ['저자명','제목','출판사','구매처','구매일','메모'];
 const COLS_CUSTOM = ['물품명','구매/선물','날짜','메모'];
 
 function safeSheetName(name){
@@ -1742,8 +1742,8 @@ function openEditModal(k, id){
   }
 
   if(k === 'cd' || k === 'tape'){
-    addField('title', '제목', textInput(item.title));
     addField('artist', '아티스트', textInput(item.artist));
+    addField('title', '제목', textInput(item.title));
     const cnt = document.createElement('input');
     cnt.type = 'number'; cnt.min = '1'; cnt.max = '50';
     cnt.value = item.setCount || 1;
@@ -1757,8 +1757,8 @@ function openEditModal(k, id){
     box.appendChild(help);
     addField('note', '메모', textInput(item.note));
   }else if(k === 'book'){
-    addField('title', '제목', textInput(item.title));
     addField('author', '저자명', textInput(item.author));
+    addField('title', '제목', textInput(item.title));
     addField('publisher', '출판사', textInput(item.publisher));
     addField('place', '구매처', textInput(item.place));
     addField('purchaseDate', '구매일', dateInput(item.purchaseDate));
@@ -1774,7 +1774,8 @@ function openEditModal(k, id){
   }
 
   document.getElementById('editModal').style.display = 'flex';
-  if(editRefs.title) editRefs.title.focus();
+  const firstInput = box.querySelector('input:not([type="checkbox"]), textarea');
+  if(firstInput) firstInput.focus();
 }
 
 async function saveEdit(){
