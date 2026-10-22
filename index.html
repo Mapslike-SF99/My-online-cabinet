@@ -345,6 +345,24 @@
 
   .status{font-size:13px;color:var(--ink-soft);margin-top:4px;min-height:16px;}
 
+  .sort-bar{
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    margin:0 0 10px;
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+  .sort-bar label{display:flex;align-items:center;gap:6px;}
+  .sort-bar select{
+    font-family:inherit;
+    font-size:13px;
+    padding:5px 7px;
+    border:1px solid var(--line);
+    border-radius:3px;
+    background:var(--card);
+    color:var(--ink);
+  }
   .modal-backdrop{
     position:fixed;
     inset:0;
@@ -746,7 +764,7 @@
   <footer class="app-footer">
     <a href="https://blog.naver.com/mapslike" target="_blank" rel="noopener noreferrer">Mapslike가 Claude의 도움을 받아 제작</a>
     <div class="app-footer-sub">(클릭하면 mapslike의 블로그로 이동합니다)</div>
-    <div class="app-footer-ver">최종수정일 2026-10-14 06:47</div>
+    <div class="app-footer-ver">최종수정일 2026-10-22 07:16</div>
   </footer>
 </div>
 
@@ -782,6 +800,8 @@ let data = { cd:[], tape:[], book:[] };
 let setVal = { cd:1, tape:1 };
 let ownerName = '';
 let customTabs = []; // [{id, name}]
+let sortPrefs = {};  // 탭별 정렬 방식 { cd:'title', ... }
+const SORT_KEY = 'settings:sortPrefs';
 
 // Claude 아티팩트 안에서 열람 중이면 window.storage(클라우드 저장)를 쓰고,
 // 다운로드한 파일을 브라우저에서 직접 열었을 때는 window.storage가 없으므로
@@ -935,6 +955,7 @@ async function loadAll(){
     }
   }
   await loadCustomTabs();
+  await loadSortPrefs();
   renderAll();
 }
 
@@ -1106,10 +1127,71 @@ function kindLabelFor(k){
   return tab ? tab.name : k;
 }
 
+// ---- 정렬 (표시 순서만 바뀌고, 저장된 데이터 순서는 그대로) ----
+async function loadSortPrefs(){
+  try{
+    const res = await storageGet(SORT_KEY, false);
+    sortPrefs = res && res.value ? JSON.parse(res.value) : {};
+  }catch(e){ sortPrefs = {}; }
+}
+async function saveSortPrefs(){
+  try{ await storageSet(SORT_KEY, JSON.stringify(sortPrefs), false); }catch(e){ /* 무시 */ }
+}
+
+function sortOptionsFor(k){
+  if(k === 'cd' || k === 'tape') return [['added','추가한 순서 (최근 먼저)'],['artist','아티스트순 (가나다·ABC)'],['title','제목순 (가나다·ABC)']];
+  if(k === 'book') return [['added','추가한 순서 (최근 먼저)'],['author','저자순 (가나다·ABC)'],['title','제목순 (가나다·ABC)']];
+  return [['added','추가한 순서 (최근 먼저)'],['title','이름순 (가나다·ABC)']];
+}
+
+function sortedItems(k){
+  const items = (data[k] || []).slice();
+  const mode = sortPrefs[k] || 'added';
+  if(mode === 'added') return items;
+  const cmp = (a, b)=> String(a || '').trim().localeCompare(String(b || '').trim(), 'ko', { numeric:true, sensitivity:'base' });
+  const blank = v => !String(v || '').trim();
+  const nameOf = it => mode === 'artist' ? it.artist : (mode === 'author' ? it.author : it.title);
+  items.sort((x, y)=>{
+    if(mode === 'title') return cmp(x.title, y.title) || cmp(x.artist || x.author, y.artist || y.author);
+    const a = nameOf(x), b = nameOf(y);
+    if(blank(a) !== blank(b)) return blank(a) ? 1 : -1;   // 이름이 비어 있는(미상) 항목은 맨 아래
+    return cmp(a, b) || cmp(x.title, y.title);
+  });
+  return items;
+}
+
+function ensureSortBar(k, listEl){
+  let bar = document.getElementById('sort-'+k);
+  if(!bar){
+    bar = document.createElement('div');
+    bar.className = 'sort-bar';
+    bar.id = 'sort-'+k;
+    const label = document.createElement('label');
+    label.appendChild(document.createTextNode('정렬'));
+    const sel = document.createElement('select');
+    sortOptionsFor(k).forEach(([v, t])=>{
+      const o = document.createElement('option');
+      o.value = v; o.textContent = t;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', ()=>{
+      sortPrefs[k] = sel.value;
+      renderList(k);
+      saveSortPrefs();
+    });
+    label.appendChild(sel);
+    bar.appendChild(label);
+    listEl.parentNode.insertBefore(bar, listEl);
+  }
+  bar.querySelector('select').value = sortPrefs[k] || 'added';
+  bar.style.display = (data[k] || []).length >= 2 ? 'flex' : 'none';
+}
+
 function renderList(k){
   const list = document.getElementById('list-'+k);
   if(!list) return;
-  const items = data[k] || [];
+  ensureSortBar(k, list);
+  const items = sortedItems(k);
   if(!items.length){
     list.innerHTML = `<div class="empty">아직 등록된 항목이 없습니다. 위 양식으로 추가해보세요.</div>`;
     return;
