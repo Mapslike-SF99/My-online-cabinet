@@ -291,6 +291,7 @@
   .item .title{font-size:17px;font-weight:600;}
   .item .sub{font-size:13.5px;color:var(--ink-soft);margin-top:3px;line-height:1.5;}
   .item .sub.artist-line{margin-top:0;margin-bottom:2px;}
+  .media-comp{font-weight:600;color:var(--ink);}
   .item .title.clickable{cursor:pointer;}
   .item .title.clickable:hover{color:var(--accent);}
   .track-hint{
@@ -486,6 +487,14 @@
   }
   .tracks-list.open{display:block;}
   .tracks-list ol{margin:0;padding-left:20px;}
+  .tracks-list .disc-title{font-weight:700;font-size:13px;margin:10px 0 2px;}
+  .tracks-list .disc-title:first-child{margin-top:0;}
+  .track-tools{display:flex;gap:8px;margin:0 0 8px;}
+  .tt-btn{border:1px solid var(--line);background:#fff;border-radius:3px;padding:4px 10px;font-size:12.5px;cursor:pointer;color:var(--ink-soft);font-family:inherit;}
+  .tt-btn:hover{color:var(--accent);border-color:var(--accent);}
+  .tt-btn.tt-danger{color:var(--danger);border-color:#e2c3ba;}
+  .trk{display:inline-flex;align-items:baseline;gap:6px;cursor:pointer;}
+  .trk input{margin:0;}
 
   .track-builder{
     display:flex;
@@ -764,7 +773,7 @@
   <footer class="app-footer">
     <a href="https://blog.naver.com/mapslike" target="_blank" rel="noopener noreferrer">Mapslike가 Claude의 도움을 받아 제작</a>
     <div class="app-footer-sub">(클릭하면 mapslike의 블로그로 이동합니다)</div>
-    <div class="app-footer-ver">최종수정일 2026-10-22 07:16</div>
+    <div class="app-footer-ver">최종수정일 2026-10-24 20:02</div>
   </footer>
 </div>
 
@@ -788,6 +797,16 @@
     <div class="modal-actions">
       <button type="button" class="btn-export" id="editCancelBtn">취소</button>
       <button type="button" class="btn-primary" id="editSaveBtn">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="confirmModal" style="display:none;">
+  <div class="modal-box" role="alertdialog" aria-modal="true" aria-labelledby="confirmMsg">
+    <div class="modal-body" id="confirmMsg" style="font-size:15px;"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-export" id="confirmNoBtn">아니오</button>
+      <button type="button" class="btn-primary" id="confirmYesBtn">예</button>
     </div>
   </div>
 </div>
@@ -1021,11 +1040,36 @@ function esc(s){
   return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+function trackTools(k, id){
+  return `<div class="track-tools">
+      <button type="button" class="tt-btn tt-sel" onclick="deleteSelectedTracks('${k}','${id}',this)">선택삭제</button>
+      <button type="button" class="tt-btn tt-danger" onclick="deleteAllTracks('${k}','${id}')">전체삭제</button>
+    </div>`;
+}
+
 function tracksBlock(item, k){
   const tracks = item.tracks || [];
   if(!tracks.length) return '';
-  const trackHtml = tracks.map(t=>`<li>${esc(t)}</li>`).join('');
-  return `<div class="tracks-list"><ol>${trackHtml}</ol></div>`;
+  const tools = trackTools(k, item.id);
+  const li = (name, i)=> `<li><label class="trk"><input type="checkbox" data-ti="${i}"><span>${esc(name)}</span></label></li>`;
+  const dn = (item.discNotes && Object.keys(item.discNotes).length) ? item.discNotes : null;
+  if(k === 'cd'){
+    const parsed = tracks.map((t, i)=>{
+      const m = String(t).match(/^Disc\s+(\d+):\s*(.*)$/i);
+      return { d: m ? parseInt(m[1], 10) : 1, name: m ? m[2] : String(t), i, pre: !!m };
+    });
+    const maxD = Math.max(...parsed.map(x => x.d));
+    // 2장 이상이면 디스크별로 나눠서, 디스크마다 1번부터 번호를 매김
+    if(parsed.some(x => x.pre) && (maxD > 1 || (item.setCount || 1) > 1 || dn)){
+      const byDisc = new Map();
+      parsed.forEach(x=>{ if(!byDisc.has(x.d)) byDisc.set(x.d, []); byDisc.get(x.d).push(x); });
+      const html = [...byDisc.keys()].sort((x, y)=> x - y).map(d =>
+        `<div class="disc-title">Disc ${d}${dn && dn[d] ? ' · ' + esc(dn[d]) : ''}</div><ol>${byDisc.get(d).map(x => li(x.name, x.i)).join('')}</ol>`
+      ).join('');
+      return `<div class="tracks-list">${tools}${html}</div>`;
+    }
+  }
+  return `<div class="tracks-list">${tools}<ol>${tracks.map((t, i)=> li(t, i)).join('')}</ol></div>`;
 }
 
 // 제목(.title)을 누르면 바로 아래의 트랙 목록을 펼치거나 접음
@@ -1058,11 +1102,33 @@ function withThumb(item, innerHtml){
   </div>`;
 }
 
+// 디스크 메모에 DVD가 있으면 DVD, 그 외(CD 표기 또는 메모 없음)는 CD로 세어서 "3CD 1DVD" 형태로 만듦
+function mediaComposition(item){
+  const dn = item.discNotes || {};
+  const keys = Object.keys(dn);
+  if(keys.length){
+    const total = Math.max(item.setCount || 1, ...keys.map(Number));
+    let cd = 0, dvd = 0;
+    for(let d = 1; d <= total; d++){ if(/dvd/i.test(dn[d] || '')) dvd++; else cd++; }
+    return [cd ? cd + 'CD' : '', dvd ? dvd + 'DVD' : ''].filter(Boolean).join(' ');
+  }
+  if((item.setCount || 1) === 1){
+    const n = String(item.note || '');
+    if(/dvd/i.test(n)) return '1DVD';
+    if(/\bcd\b/i.test(n)) return '1CD';
+  }
+  return '';
+}
+
 function cdRowHtml(item, delAttr){
-  const inner = `<div class="sub artist-line">${esc(item.artist)||'아티스트 미상'}${item.note?' · '+esc(item.note):''}</div>
-      ${mediaTitleHtml(item, item.setCount>1?`<span class="badge">${item.setCount}CD 세트</span>`:'')}
+  const comp = mediaComposition(item);
+  const hasDn = !!(item.discNotes && Object.keys(item.discNotes).length);
+  // 구성(3CD 1DVD)을 가수명 옆에 보여줄 때는 제목 옆의 "N CD 세트" 표시는 생략
+  const badge = (item.setCount > 1 && !(comp && hasDn)) ? `<span class="badge">${item.setCount}CD 세트</span>` : '';
+  const inner = `<div class="sub artist-line">${esc(item.artist)||'아티스트 미상'}${comp ? ` · <span class="media-comp">${comp}</span>` : ''}${item.note?' · '+esc(item.note):''}</div>
+      ${mediaTitleHtml(item, badge)}
       ${tracksBlock(item,'cd')}`;
-  return `<div class="item" data-kind="cd">
+  return `<div class="item" data-kind="cd" data-id="${item.id}">
     <div class="main">
       ${withThumb(item, inner)}
     </div>
@@ -1073,7 +1139,7 @@ function tapeRowHtml(item){
   const inner = `<div class="sub artist-line">${esc(item.artist)||'아티스트 미상'}${item.note?' · '+esc(item.note):''}</div>
       ${mediaTitleHtml(item, item.setCount>1?`<span class="badge">${item.setCount}Tapes</span>`:'')}
       ${tracksBlock(item,'tape')}`;
-  return `<div class="item" data-kind="tape">
+  return `<div class="item" data-kind="tape" data-id="${item.id}">
     <div class="main">
       ${withThumb(item, inner)}
     </div>
@@ -1204,6 +1270,7 @@ function renderList(k){
 function matches(item, k, q){
   const fields = [item.title, item.artist, item.author, item.publisher, item.place, item.note, item.purchaseDate, item.date];
   if(item.tracks && item.tracks.length) fields.push(item.tracks.join(' '));
+  if(item.discNotes) fields.push(Object.values(item.discNotes).join(' '));
   return fields.some(f => (f||'').toLowerCase().includes(q));
 }
 
@@ -1670,9 +1737,22 @@ function exportToExcel(){
     if(!tracks.length){
       cdRows.push({ '제목': item.title, '아티스트': item.artist||'', 'CD Number': item.setCount||1, '트랙': '', '메모': item.note||'' });
     }else{
+      const dn = item.discNotes || {};
+      const hasDn = Object.keys(dn).length > 0;
+      const seen = new Set();
       tracks.forEach(t=>{
         const { discNum, name } = parseCdTrackString(t);
-        cdRows.push({ '제목': item.title, '아티스트': item.artist||'', 'CD Number': discNum, '트랙': name, '메모': item.note||'' });
+        let memo = item.note || '';
+        if(hasDn){
+          memo = '';
+          if(!seen.has(discNum)){
+            seen.add(discNum);
+            memo = dn[discNum] || '';
+            // 디스크 메모와 앨범 메모가 둘 다 있으면 첫 디스크에 함께 적어 내용이 사라지지 않게 함
+            if(item.note && seen.size === 1) memo = memo ? memo + ' / ' + item.note : item.note;
+          }
+        }
+        cdRows.push({ '제목': item.title, '아티스트': item.artist||'', 'CD Number': discNum, '트랙': name, '메모': memo });
       });
     }
   });
@@ -1767,9 +1847,74 @@ function groupKey(title, artist){
   return title + '||' + (artist||'');
 }
 
+// ---- 트랙 선택삭제 / 전체삭제 (삭제 전에 예/아니오 확인) ----
+let confirmResolver = null;
+function askConfirm(message){
+  return new Promise(resolve=>{
+    confirmResolver = resolve;
+    document.getElementById('confirmMsg').textContent = message;
+    document.getElementById('confirmModal').style.display = 'flex';
+    document.getElementById('confirmNoBtn').focus();   // 삭제는 실수하기 쉬워서 "아니오"에 먼저 커서
+  });
+}
+function closeConfirm(answer){
+  document.getElementById('confirmModal').style.display = 'none';
+  if(confirmResolver){ const r = confirmResolver; confirmResolver = null; r(answer); }
+}
+document.getElementById('confirmYesBtn').addEventListener('click', ()=> closeConfirm(true));
+document.getElementById('confirmNoBtn').addEventListener('click', ()=> closeConfirm(false));
+document.getElementById('confirmModal').addEventListener('click', (e)=>{ if(e.target.id === 'confirmModal') closeConfirm(false); });
+document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && confirmResolver) closeConfirm(false); });
+
+// 체크할 때마다 "선택삭제 (n)" 표시 갱신
+document.addEventListener('change', (e)=>{
+  const cb = e.target;
+  if(!cb.matches || !cb.matches('.tracks-list input[type="checkbox"]')) return;
+  const box = cb.closest('.tracks-list');
+  const n = box.querySelectorAll('input[type="checkbox"]:checked').length;
+  const btn = box.querySelector('.tt-sel');
+  if(btn) btn.textContent = n ? `선택삭제 (${n})` : '선택삭제';
+});
+
+function reopenTracks(k, id){
+  const sel = `.item[data-id="${id}"]`;
+  const row = document.querySelector('#searchResults.active ' + sel) || document.querySelector('#list-' + k + ' ' + sel);
+  const t = row && row.querySelector('.title.clickable');
+  if(t) toggleTracks(t);
+}
+
+async function deleteTracksByIndex(k, id, indices){
+  const item = (data[k] || []).find(x => x.id === id);
+  if(!item) return;
+  const drop = new Set(indices);
+  item.tracks = (item.tracks || []).filter((_, i) => !drop.has(i));
+  await save(k);
+  renderList(k);
+  updateTotal();
+  const q = document.getElementById('searchInput').value;
+  if(q.trim()) runSearch(q);
+  reopenTracks(k, id);
+  statusMsg(`트랙 ${drop.size}개를 삭제했어요.`);
+}
+
+async function deleteSelectedTracks(k, id, btn){
+  const box = btn.closest('.tracks-list');
+  const idx = [...box.querySelectorAll('input[type="checkbox"]:checked')].map(c => parseInt(c.dataset.ti, 10));
+  if(!idx.length){ statusMsg('삭제할 트랙을 먼저 체크해주세요.'); return; }
+  if(await askConfirm(`선택된 ${idx.length}개를 삭제하시겠습니까?`)) await deleteTracksByIndex(k, id, idx);
+}
+
+async function deleteAllTracks(k, id){
+  const item = (data[k] || []).find(x => x.id === id);
+  if(!item || !(item.tracks || []).length) return;
+  const n = item.tracks.length;
+  if(await askConfirm(`트랙 전체 ${n}개를 삭제하시겠습니까?`)) await deleteTracksByIndex(k, id, item.tracks.map((_, i) => i));
+}
+
 // ---- 항목 수정 ----
 let editing = null;   // { k, id }
 let editRefs = {};    // 입력칸 모음
+let editDiscMode = false; // 2장 이상 CD: 디스크 단위 편집 형식 사용
 
 function closeEditModal(){
   document.getElementById('editModal').style.display = 'none';
@@ -1783,11 +1928,62 @@ function showEditError(msg){
   el.style.display = msg ? 'block' : 'none';
 }
 
+function isMultiDiscItem(item){
+  return (item.setCount || 1) > 1
+    || Object.keys(item.discNotes || {}).length > 0
+    || (item.tracks || []).some(t => { const m = String(t).match(/^Disc\s+(\d+):/i); return m && parseInt(m[1], 10) > 1; });
+}
+
+// 수정 창용 글: 'Disc1 · 메모' 줄 아래에 'Disc1-1 곡명' 줄들 (디스크마다 번호가 1부터)
+function buildDiscEditText(item){
+  const dn = item.discNotes || {};
+  const byDisc = new Map();
+  (item.tracks || []).forEach(t=>{
+    const m = String(t).match(/^Disc\s+(\d+):\s*(.*)$/i);
+    const d = m ? parseInt(m[1], 10) : 1;
+    if(!byDisc.has(d)) byDisc.set(d, []);
+    byDisc.get(d).push(m ? m[2] : String(t));
+  });
+  const maxD = Math.max(item.setCount || 1, ...byDisc.keys(), ...Object.keys(dn).map(Number));
+  const lines = [];
+  for(let d = 1; d <= maxD; d++){
+    lines.push(`Disc${d}${dn[d] ? ' · ' + dn[d] : ''}`);
+    (byDisc.get(d) || []).forEach((name, i)=> lines.push(`Disc${d}-${i + 1} ${name}`));
+  }
+  return lines.join('\n');
+}
+
+// 위 형식의 글을 다시 저장용 데이터로 (번호는 줄 순서대로 새로 매겨짐)
+function parseDiscEditText(text){
+  const tracks = [], notes = {};
+  let cur = 1, maxN = 1;
+  text.split('\n').forEach(raw=>{
+    const line = raw.trim();
+    if(!line) return;
+    let m;
+    if((m = line.match(/^Disc\s*(\d+)\s*-\s*(\d+)(?:\s+(.*))?$/i))){
+      cur = parseInt(m[1], 10); maxN = Math.max(maxN, cur);
+      const name = (m[3] || '').trim();
+      if(name) tracks.push(`Disc ${cur}: ${name}`);
+    }else if((m = line.match(/^Disc\s*(\d+)\s*(?:·\s*(.*))?$/i))){
+      cur = parseInt(m[1], 10); maxN = Math.max(maxN, cur);
+      if(m[2] && m[2].trim()) notes[String(cur)] = m[2].trim();
+    }else if((m = line.match(/^Disc\s*(\d+)\s*[:：]\s*(.*)$/i))){
+      cur = parseInt(m[1], 10); maxN = Math.max(maxN, cur);
+      if(m[2].trim()) tracks.push(`Disc ${cur}: ${m[2].trim()}`);
+    }else{
+      tracks.push(`Disc ${cur}: ${line}`);   // 번호 없이 적은 줄은 바로 윗 디스크의 곡으로 처리
+    }
+  });
+  return { tracks, notes, maxN };
+}
+
 function openEditModal(k, id){
   const item = (data[k] || []).find(x => x.id === id);
   if(!item) return;
   editing = { k, id };
   editRefs = {};
+  editDiscMode = false;
   showEditError('');
   document.getElementById('editModalTitle').textContent = `${kindLabelFor(k)} 수정`;
 
@@ -1830,13 +2026,17 @@ function openEditModal(k, id){
     cnt.type = 'number'; cnt.min = '1'; cnt.max = '50';
     cnt.value = item.setCount || 1;
     addField('count', k === 'cd' ? '구성 (CD 장수)' : '구성 (테이프 개수)', cnt);
-    addField('tracks', '트랙 목록 (한 줄에 한 곡)', textArea((item.tracks || []).join('\n'), 7));
-    const help = document.createElement('div');
-    help.className = 'edit-help';
-    help.textContent = k === 'cd'
-      ? "곡명의 오타만 고치려면 앞의 'Disc 2:' 같은 표시는 그대로 두세요. 이 표시로 몇 번째 CD인지 구분해요."
-      : "곡명의 오타만 고치려면 앞의 'A면:', 'B면:' 표시는 그대로 두세요. 이 표시로 어느 면인지 구분해요.";
-    box.appendChild(help);
+    editDiscMode = (k === 'cd') && isMultiDiscItem(item);
+    addField('tracks', editDiscMode ? '디스크·트랙 목록' : '트랙 목록 (한 줄에 한 곡)',
+      textArea(editDiscMode ? buildDiscEditText(item) : (item.tracks || []).join('\n'), editDiscMode ? 12 : 7));
+    if(editDiscMode || k === 'tape'){
+      const help = document.createElement('div');
+      help.className = 'edit-help';
+      help.textContent = editDiscMode
+        ? "'Disc1 · 메모' 줄이 각 디스크의 시작이고, 그 아래에 'Disc1-1 곡명' 형식으로 곡이 이어져요. 곡명이나 메모만 고치면 되고, 번호는 저장할 때 자동으로 다시 매겨져요."
+        : "곡명의 오타만 고치려면 앞의 'A면:', 'B면:' 표시는 그대로 두세요. 이 표시로 어느 면인지 구분해요.";
+      box.appendChild(help);
+    }
     addField('note', '메모', textInput(item.note));
   }else if(k === 'book'){
     addField('author', '저자명', textInput(item.author));
@@ -1878,18 +2078,26 @@ async function saveEdit(){
 
   let updated;
   if(k === 'cd' || k === 'tape'){
-    const tracks = r.tracks.value.split('\n').map(t => t.trim()).filter(Boolean);
-    // 트랙에 적힌 Disc/Tape 번호보다 구성 수를 작게 줄이지는 않음
-    let maxN = 0;
-    tracks.forEach(t=>{
-      const m = (k === 'cd') ? t.match(/^Disc\s+(\d+):/i) : t.match(/^Tape\s+(\d+)\s/i);
-      if(m) maxN = Math.max(maxN, parseInt(m[1], 10));
-    });
+    let tracks, maxN = 0, parsedNotes = null;
+    if(k === 'cd' && editDiscMode){
+      const pr = parseDiscEditText(r.tracks.value);
+      tracks = pr.tracks; maxN = pr.maxN; parsedNotes = pr.notes;
+    }else{
+      tracks = r.tracks.value.split('\n').map(t => t.trim()).filter(Boolean);
+      // 트랙에 적힌 Disc/Tape 번호보다 구성 수를 작게 줄이지는 않음
+      tracks.forEach(t=>{
+        const m = (k === 'cd') ? t.match(/^Disc\s+(\d+):/i) : t.match(/^Tape\s+(\d+)\s/i);
+        if(m) maxN = Math.max(maxN, parseInt(m[1], 10));
+      });
+    }
     let cnt = parseInt(r.count.value, 10);
     if(!cnt || cnt < 1) cnt = 1;
     if(cnt > 50) cnt = 50;
     cnt = Math.max(cnt, maxN);
     updated = Object.assign({}, old, { title, artist: v('artist'), setCount: cnt, tracks, note: v('note') });
+    if(k === 'cd' && editDiscMode){
+      if(parsedNotes && Object.keys(parsedNotes).length) updated.discNotes = parsedNotes; else delete updated.discNotes;
+    }
   }else if(k === 'book'){
     updated = Object.assign({}, old, {
       title, author: v('author'), publisher: v('publisher'), place: v('place'),
@@ -1925,13 +2133,18 @@ document.addEventListener('keydown', (e)=>{
 // ---- 완전히 같은 항목 비교 / 중복 확인 창 ----
 function normStr(v){ return String(v == null ? '' : v).trim(); }
 
+function discNotesKey(o){
+  return JSON.stringify(Object.keys(o || {}).sort((x, y)=> x - y).map(n => [n, normStr(o[n])]));
+}
+
 function sameContent(k, a, b){
   const f = (x, name) => normStr(x[name]);
   if(k === 'cd' || k === 'tape'){
     return f(a,'title') === f(b,'title') && f(a,'artist') === f(b,'artist')
       && (Number(a.setCount) || 1) === (Number(b.setCount) || 1)
       && (a.tracks || []).map(normStr).join('\u0001') === (b.tracks || []).map(normStr).join('\u0001')
-      && f(a,'note') === f(b,'note');
+      && f(a,'note') === f(b,'note')
+      && discNotesKey(a.discNotes) === discNotesKey(b.discNotes);
   }
   if(k === 'book'){
     return ['title','author','publisher','place','purchaseDate','note'].every(n => f(a,n) === f(b,n));
@@ -2032,7 +2245,7 @@ function importFromExcel(file){
         prevTitle = title; prevArtist = artist;
         const key = groupKey(title, artist);
         if(!groups.has(key)){
-          groups.set(key, { title, artist, note, discs: new Map(), lastDisc: 1 });
+          groups.set(key, { title, artist, note, discs: new Map(), lastDisc: 1, discNotes: new Map() });
         }
         const g = groups.get(key);
 
@@ -2042,6 +2255,8 @@ function importFromExcel(file){
         g.lastDisc = discNum;
 
         if(!g.note && note) g.note = note;
+        // 메모도 CD Number를 따라감: 그 디스크의 첫 메모가 그 디스크 이름이 됨 (빈칸은 같은 디스크 안에서 윗줄을 이어받는 효과)
+        if(note && !g.discNotes.has(discNum)) g.discNotes.set(discNum, note);
         if(trackName){
           if(!g.discs.has(discNum)) g.discs.set(discNum, []);
           g.discs.get(discNum).push(trackName);
@@ -2066,7 +2281,8 @@ function importFromExcel(file){
           artist: g.artist,
           setCount: maxDisc,
           tracks,
-          note: g.note
+          note: (maxDisc > 1 && g.discNotes.size) ? '' : g.note,
+          discNotes: (maxDisc > 1 && g.discNotes.size) ? Object.fromEntries(g.discNotes) : undefined
         });
       });
     }
