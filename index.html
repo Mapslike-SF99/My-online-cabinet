@@ -348,7 +348,9 @@
 
   .sort-bar{
     display:flex;
-    justify-content:flex-end;
+    justify-content:space-between;
+    gap:10px;
+    flex-wrap:wrap;
     align-items:center;
     margin:0 0 10px;
     font-size:13px;
@@ -364,6 +366,9 @@
     background:var(--card);
     color:var(--ink);
   }
+  .bulk-tools{display:flex;gap:8px;}
+  .row-pick{display:flex;align-items:flex-start;padding-top:2px;cursor:pointer;flex-shrink:0;}
+  .row-pick input{width:18px;height:18px;margin:0;cursor:pointer;}
   .modal-backdrop{
     position:fixed;
     inset:0;
@@ -773,7 +778,7 @@
   <footer class="app-footer">
     <a href="https://blog.naver.com/mapslike" target="_blank" rel="noopener noreferrer">Mapslike가 Claude의 도움을 받아 제작</a>
     <div class="app-footer-sub">(클릭하면 mapslike의 블로그로 이동합니다)</div>
-    <div class="app-footer-ver">최종수정일 2026-10-24 20:02</div>
+    <div class="app-footer-ver">최종수정일 2026-10-25 00:20</div>
   </footer>
 </div>
 
@@ -1112,6 +1117,7 @@ function mediaComposition(item){
     for(let d = 1; d <= total; d++){ if(/dvd/i.test(dn[d] || '')) dvd++; else cd++; }
     return [cd ? cd + 'CD' : '', dvd ? dvd + 'DVD' : ''].filter(Boolean).join(' ');
   }
+  if((item.setCount || 1) > 1) return (item.setCount) + 'CD';   // 디스크 메모가 없는 데이터는 전부 CD로 계산
   if((item.setCount || 1) === 1){
     const n = String(item.note || '');
     if(/dvd/i.test(n)) return '1DVD';
@@ -1122,11 +1128,8 @@ function mediaComposition(item){
 
 function cdRowHtml(item, delAttr){
   const comp = mediaComposition(item);
-  const hasDn = !!(item.discNotes && Object.keys(item.discNotes).length);
-  // 구성(3CD 1DVD)을 가수명 옆에 보여줄 때는 제목 옆의 "N CD 세트" 표시는 생략
-  const badge = (item.setCount > 1 && !(comp && hasDn)) ? `<span class="badge">${item.setCount}CD 세트</span>` : '';
   const inner = `<div class="sub artist-line">${esc(item.artist)||'아티스트 미상'}${comp ? ` · <span class="media-comp">${comp}</span>` : ''}${item.note?' · '+esc(item.note):''}</div>
-      ${mediaTitleHtml(item, badge)}
+      ${mediaTitleHtml(item, '')}
       ${tracksBlock(item,'cd')}`;
   return `<div class="item" data-kind="cd" data-id="${item.id}">
     <div class="main">
@@ -1232,6 +1235,16 @@ function ensureSortBar(k, listEl){
     bar = document.createElement('div');
     bar.className = 'sort-bar';
     bar.id = 'sort-'+k;
+
+    // 왼쪽: 체크한 항목 통째로 삭제 / 이 탭 전체 삭제
+    const tools = document.createElement('div');
+    tools.className = 'bulk-tools';
+    tools.innerHTML = '<button type="button" class="tt-btn bulk-sel">선택삭제</button><button type="button" class="tt-btn tt-danger bulk-all">전체삭제</button>';
+    tools.querySelector('.bulk-sel').addEventListener('click', ()=> deleteSelectedItems(k));
+    tools.querySelector('.bulk-all').addEventListener('click', ()=> deleteAllItems(k));
+    bar.appendChild(tools);
+
+    // 오른쪽: 정렬
     const label = document.createElement('label');
     label.appendChild(document.createTextNode('정렬'));
     const sel = document.createElement('select');
@@ -1250,21 +1263,77 @@ function ensureSortBar(k, listEl){
     listEl.parentNode.insertBefore(bar, listEl);
   }
   bar.querySelector('select').value = sortPrefs[k] || 'added';
-  bar.style.display = (data[k] || []).length >= 2 ? 'flex' : 'none';
+  const n = (data[k] || []).length;
+  bar.style.display = n >= 1 ? 'flex' : 'none';                          // 항목이 있으면 삭제 버튼 표시
+  bar.querySelector('label').style.display = n >= 2 ? 'flex' : 'none';   // 정렬은 2개 이상일 때만
+}
+
+function updateBulkLabel(k){
+  const btn = document.querySelector(`#sort-${k} .bulk-sel`);
+  if(!btn) return;
+  const n = document.querySelectorAll(`#list-${k} .pick:checked`).length;
+  btn.textContent = n ? `선택삭제 (${n})` : '선택삭제';
 }
 
 function renderList(k){
   const list = document.getElementById('list-'+k);
   if(!list) return;
+  const prevChecked = new Set([...list.querySelectorAll('.pick:checked')].map(c => c.dataset.id));
   ensureSortBar(k, list);
   const items = sortedItems(k);
   if(!items.length){
     list.innerHTML = `<div class="empty">아직 등록된 항목이 없습니다. 위 양식으로 추가해보세요.</div>`;
+    updateBulkLabel(k);
     return;
   }
   const fn = rowFnFor(k);
   list.innerHTML = items.map(item => fn(item)).join('');
+  // 각 항목 왼쪽에 체크박스 (정렬·수정으로 다시 그려져도 체크 상태 유지)
+  [...list.children].forEach((row, i)=>{
+    if(!row.classList.contains('item') || !items[i]) return;
+    const lab = document.createElement('label');
+    lab.className = 'row-pick';
+    lab.title = '선택';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'pick';
+    cb.dataset.id = items[i].id;
+    cb.dataset.k = k;
+    cb.checked = prevChecked.has(items[i].id);
+    lab.appendChild(cb);
+    row.insertBefore(lab, row.firstChild);
+  });
+  updateBulkLabel(k);
 }
+
+async function deleteItemsByIds(k, ids){
+  const drop = new Set(ids);
+  data[k] = (data[k] || []).filter(x => !drop.has(x.id));
+  await save(k);
+  renderList(k);
+  updateTotal();
+  refreshImgRecUI();
+  const q = document.getElementById('searchInput').value;
+  if(q.trim()) runSearch(q);
+  statusMsg(`${drop.size}개를 삭제했어요.`);
+}
+
+async function deleteSelectedItems(k){
+  const ids = [...document.querySelectorAll(`#list-${k} .pick:checked`)].map(c => c.dataset.id);
+  if(!ids.length){ statusMsg('삭제할 항목을 먼저 체크해주세요.'); return; }
+  if(await askConfirm(`선택된 ${ids.length}개를 삭제하시겠습니까?`)) await deleteItemsByIds(k, ids);
+}
+
+async function deleteAllItems(k){
+  const n = (data[k] || []).length;
+  if(!n) return;
+  if(await askConfirm(`${kindLabelFor(k)} 전체 ${n}개를 삭제하시겠습니까?`)) await deleteItemsByIds(k, data[k].map(x => x.id));
+}
+
+document.addEventListener('change', (e)=>{
+  const cb = e.target;
+  if(cb.matches && cb.matches('input.pick')) updateBulkLabel(cb.dataset.k);
+});
 
 // ---- 통합 검색 ----
 function matches(item, k, q){
