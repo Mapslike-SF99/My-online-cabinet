@@ -500,6 +500,9 @@
   .tt-btn.tt-danger{color:var(--danger);border-color:#e2c3ba;}
   .trk{display:inline-flex;align-items:baseline;gap:6px;cursor:pointer;}
   .trk input{margin:0;}
+  .tape-list{list-style:none;margin:0;padding:0;}
+  .tape-list li{margin:3px 0;}
+  .trk-no{font-weight:600;color:var(--ink-soft);white-space:nowrap;}
 
   .track-builder{
     display:flex;
@@ -778,7 +781,7 @@
   <footer class="app-footer">
     <a href="https://blog.naver.com/mapslike" target="_blank" rel="noopener noreferrer">Mapslike가 Claude의 도움을 받아 제작</a>
     <div class="app-footer-sub">(클릭하면 mapslike의 블로그로 이동합니다)</div>
-    <div class="app-footer-ver">최종수정일 2026-10-25 00:20</div>
+    <div class="app-footer-ver">최종수정일 2026-10-29 20:14</div>
   </footer>
 </div>
 
@@ -1073,6 +1076,21 @@ function tracksBlock(item, k){
       ).join('');
       return `<div class="tracks-list">${tools}${html}</div>`;
     }
+  }
+  if(k === 'tape'){
+    // 테이프: 체크박스 + "A면-1 곡명" (면마다 1번부터)
+    const counts = {};
+    const lis = tracks.map((t, i)=>{
+      const m = String(t).match(/^(?:Tape\s+(\d+)\s+)?([AB])면:\s*(.*)$/i);
+      if(!m) return `<li><label class="trk"><input type="checkbox" data-ti="${i}"><span>${esc(t)}</span></label></li>`;
+      const tapeNo = m[1] || '';
+      const side = m[2].toUpperCase();
+      const key = tapeNo + '|' + side;
+      counts[key] = (counts[key] || 0) + 1;
+      const label = (tapeNo ? 'Tape' + tapeNo + ' ' : '') + side + '면-' + counts[key];
+      return `<li><label class="trk"><input type="checkbox" data-ti="${i}"><span class="trk-no">${label}</span> <span>${esc(m[3])}</span></label></li>`;
+    });
+    return `<div class="tracks-list">${tools}<ul class="tape-list">${lis.join('')}</ul></div>`;
   }
   return `<div class="tracks-list">${tools}<ol>${tracks.map((t, i)=> li(t, i)).join('')}</ol></div>`;
 }
